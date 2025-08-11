@@ -1,0 +1,19 @@
+name: custom-orm
+version: 0.1.0
+
+authors:
+  - Adam Harbinson <ar.harbinson@helixnet.co>
+
+crystal: '>= 1.10.1'
+
+dependencies:
+  pg:
+    github: will/crystal-pg
+  sqlite3:
+    github: crystal-lang/crystal-sqlite3
+  mysql:
+    github: crystal-lang/crystal-mysql
+  active-model:
+    github: spider-gazelle/active-model
+
+license: MIT
