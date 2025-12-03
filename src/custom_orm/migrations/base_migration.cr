@@ -8,6 +8,10 @@ module CustomOrm
   abstract class BaseMigration
     getter connection_name : Symbol
 
+    macro inherited
+      CustomOrm::MigrationRunner.migrations << {{ @type }}
+    end
+
     def initialize(@connection_name : Symbol = :default); end
 
     # ---- Directional API (choose one style) ----
@@ -180,7 +184,15 @@ module CustomOrm::Migrations
 
     def boolean(name : Symbol, null : Bool = true, default : Bool? = nil)
       type = dialect == CustomOrm::SQL::Dialect::Sqlite ? "INTEGER" : "BOOLEAN"
-      dflt = default.nil? ? nil : (dialect == CustomOrm::SQL::Dialect::Sqlite ? (default ? 1 : 0) : (default ? "TRUE" : "FALSE"))
+
+      dflt = if default.nil?
+        nil
+      elsif dialect == CustomOrm::SQL::Dialect::Sqlite
+        default ? 1 : 0             # becomes 1 / 0, literal handles ints fine
+      else
+        default                      # keep as Bool; literal() already does TRUE/FALSE
+      end
+
       columns << TypeSql.build_col(name, type, dialect, null: null, default: dflt)
     end
 
@@ -194,11 +206,19 @@ module CustomOrm::Migrations
 
     def datetime(name : Symbol, null : Bool = true, default_now : Bool = false)
       type = case dialect
-             when CustomOrm::SQL::Dialect::Pg then "TIMESTAMPTZ"
-             else "DATETIME"
-             end
-      default = default_now ? "CURRENT_TIMESTAMP" : nil
-      columns << TypeSql.build_col(name, type, dialect, null: null, default: default)
+            when CustomOrm::SQL::Dialect::Pg then "TIMESTAMPTZ"
+            else "DATETIME"
+            end
+
+      if default_now
+        # Build SQL manually so CURRENT_TIMESTAMP is raw, not quoted
+        col = "#{name} #{type}"
+        col += " NOT NULL" unless null
+        col += " DEFAULT CURRENT_TIMESTAMP"
+        columns << col
+      else
+        columns << TypeSql.build_col(name, type, dialect, null: null, default: nil)
+      end
     end
 
     def timestamps(null : Bool = false)
@@ -232,7 +252,17 @@ module CustomOrm::Migrations
   # Type mapping helpers
   module TypeSql
     def self.column_sql(name : Symbol, type : Symbol, dialect : CustomOrm::SQL::Dialect, opts)
-      build_col(name, sql_type_for(type, dialect, opts), dialect, null: (opts[:null]? || true), default: opts[:default]?)
+      # opts is a NamedTuple from **opts in the caller
+      raw_null = opts[:null]?
+      null = raw_null.nil? ? true : raw_null.as(Bool)
+
+      build_col(
+        name,
+        sql_type_for(type, dialect, opts),
+        dialect,
+        null: null,
+        default: opts[:default]?
+      )
     end
 
     def self.sql_type_for(type : Symbol, dialect : CustomOrm::SQL::Dialect, opts)

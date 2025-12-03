@@ -8,13 +8,6 @@ module CustomOrm
   class MigrationRunner
     class_getter migrations = [] of CustomOrm::BaseMigration.class
 
-    # Auto-register migrations when subclassed
-    macro register_on_inherit
-      macro inherited
-        CustomOrm::MigrationRunner.migrations << {{@type}}
-      end
-    end
-
     def initialize(@connection_name : Symbol = :default, @verbose : Bool = true); end
 
     def run_migrations
