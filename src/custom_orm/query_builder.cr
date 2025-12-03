@@ -6,13 +6,12 @@ module CustomOrm::QueryBuilder
     "$#{n}"
   end
 
-  def self.append_params!(target : Array(DB::Any), vals : Array(DB::Any) | NamedTuple)
-    case vals
-    when Array(DB::Any)
-      target.concat(vals)
-    else
-      target.concat(vals.values.to_a.map(&.as(DB::Any)))
-    end
+  def self.append_params!(target : Array(DB::Any), vals : Array(DB::Any))
+    target.concat(vals)
+  end
+
+  def self.append_params!(target : Array(DB::Any), vals : NamedTuple)
+    target.concat(vals.values.to_a.map(&.as(DB::Any)))
   end
 
   # -------------------------
@@ -166,13 +165,24 @@ module CustomOrm::QueryBuilder
     @values   : Array(DB::Any)
     @ret_cols : Array(String)?
 
-    def initialize(@table : String, data : Hash(Symbol, DB::Any) | NamedTuple)
+    def initialize(@table : String, data : Hash(Symbol, DB::Any))
       @columns  = [] of String
       @values   = [] of DB::Any
       @ret_cols = nil
       data.each do |col, val|
         @columns << col.to_s
         @values  << val
+      end
+    end
+
+    # NamedTuple variant
+    def initialize(@table : String, data : NamedTuple)
+      @columns  = [] of String
+      @values   = [] of DB::Any
+      @ret_cols = nil
+      data.each do |col, val|
+        @columns << col.to_s
+        @values  << val.as(DB::Any)
       end
     end
 
@@ -203,7 +213,7 @@ module CustomOrm::QueryBuilder
     @where    : String?
     @ret_cols : Array(String)?
 
-    def initialize(@table : String, data : Hash(Symbol, DB::Any) | NamedTuple)
+    def initialize(@table : String, data : Hash(Symbol, DB::Any))
       @updates  = [] of String
       @params   = [] of DB::Any
       @where    = nil
@@ -213,6 +223,21 @@ module CustomOrm::QueryBuilder
       data.each do |col, val|
         @updates << "#{col} = #{CustomOrm::QueryBuilder.ph(base)}"
         @params << val
+        base += 1
+      end
+    end
+
+    # NamedTuple variant
+    def initialize(@table : String, data : NamedTuple)
+      @updates  = [] of String
+      @params   = [] of DB::Any
+      @where    = nil
+      @ret_cols = nil
+
+      base = 1
+      data.each do |col, val|
+        @updates << "#{col} = #{CustomOrm::QueryBuilder.ph(base)}"
+        @params << val.as(DB::Any)
         base += 1
       end
     end
@@ -329,6 +354,7 @@ module CustomOrm::QueryBuilder
   # -------------------------
   # Convenience constructors
   # -------------------------
+
   def self.select_all(table : String) : Select
     Select.new(table)
   end
@@ -337,33 +363,76 @@ module CustomOrm::QueryBuilder
     Select.new(table).where("#{pk} = #{ph(1)}", id)
   end
 
-  def self.select_by(table : String, filters : Hash(Symbol, DB::Any) | NamedTuple) : Select
+  # filters: Hash
+  def self.select_by(table : String, filters : Hash(Symbol, DB::Any)) : Select
     Select.new(table).where_hash(filters)
   end
 
-  def self.select_by_statement(table : String, stmt : String, vals : Array(DB::Any) | NamedTuple) : Select
+  # filters: NamedTuple
+  def self.select_by(table : String, filters : NamedTuple) : Select
+    Select.new(table).where_hash(filters)
+  end
+
+  # stmt + params: Array
+  def self.select_by_statement(table : String, stmt : String, vals : Array(DB::Any)) : Select
     sel = Select.new(table)
     sel.where_array(stmt, vals)
     sel
   end
 
-  def self.insert_into(table : String, data : Hash(Symbol, DB::Any) | NamedTuple) : Insert
+  # stmt + params: NamedTuple
+  def self.select_by_statement(table : String, stmt : String, vals : NamedTuple) : Select
+    sel = Select.new(table)
+    sel.where_array(stmt, vals)
+    sel
+  end
+
+  # INSERT
+  def self.insert_into(table : String, data : Hash(Symbol, DB::Any)) : Insert
     Insert.new(table, data)
   end
 
-  def self.update(table : String, data : Hash(Symbol, DB::Any) | NamedTuple, id : DB::Any, pk : String | Symbol = "id") : Update
+  def self.insert_into(table : String, data : NamedTuple) : Insert
+    Insert.new(table, data)
+  end
+
+  # UPDATE (by id)
+  def self.update(table : String, data : Hash(Symbol, DB::Any), id : DB::Any, pk : String | Symbol = "id") : Update
     Update.new(table, data).where("#{pk} = #{ph(data.size + 1)}", id)
   end
 
-  def self.update_where(table : String, data : Hash(Symbol, DB::Any) | NamedTuple, filters : Hash(Symbol, DB::Any) | NamedTuple) : Update
+  def self.update(table : String, data : NamedTuple, id : DB::Any, pk : String | Symbol = "id") : Update
+    Update.new(table, data).where("#{pk} = #{ph(data.size + 1)}", id)
+  end
+
+  # UPDATE ... WHERE (all combos)
+  def self.update_where(table : String, data : Hash(Symbol, DB::Any), filters : Hash(Symbol, DB::Any)) : Update
     Update.new(table, data).where_hash(filters)
   end
 
+  def self.update_where(table : String, data : Hash(Symbol, DB::Any), filters : NamedTuple) : Update
+    Update.new(table, data).where_hash(filters)
+  end
+
+  def self.update_where(table : String, data : NamedTuple, filters : Hash(Symbol, DB::Any)) : Update
+    Update.new(table, data).where_hash(filters)
+  end
+
+  def self.update_where(table : String, data : NamedTuple, filters : NamedTuple) : Update
+    Update.new(table, data).where_hash(filters)
+  end
+
+  # DELETE by id
   def self.delete_from(table : String, id : DB::Any, pk : String | Symbol = "id") : Delete
     Delete.new(table).where("#{pk} = #{ph(1)}", id)
   end
 
-  def self.delete_where(table : String, filters : Hash(Symbol, DB::Any) | NamedTuple) : Delete
+  # DELETE ... WHERE (both input styles)
+  def self.delete_where(table : String, filters : Hash(Symbol, DB::Any)) : Delete
+    Delete.new(table).where_hash(filters)
+  end
+
+  def self.delete_where(table : String, filters : NamedTuple) : Delete
     Delete.new(table).where_hash(filters)
   end
 end
