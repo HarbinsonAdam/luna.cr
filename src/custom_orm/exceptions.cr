@@ -16,4 +16,10 @@ module CustomOrm
       super("Record is invalid, #{@errors}")
     end
   end
+
+  class RecordNotFound < Exception
+    def initialize(@message : String)
+      super(@message)
+    end
+  end
 end

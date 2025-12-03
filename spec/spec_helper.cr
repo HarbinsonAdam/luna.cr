@@ -8,11 +8,11 @@ Spec.before_suite do
   File.delete(DB_FILE) if File.exists?(DB_FILE)
 
   # Register a single-connection file-based SQLite DB for both default and reports
-  CustomOrm::Setup.register :default, "sqlite3://#{DB_FILE}"
-  CustomOrm::Setup.register :reports, "sqlite3://#{DB_FILE}"
+  CustomOrm::Setup.register :default, "sqlite3:#{DB_FILE}"
+  CustomOrm::Setup.register :reports, "sqlite3:#{DB_FILE}"
 end
 
 Spec.after_suite do
   # Clean up
-  #File.delete(DB_FILE) if File.exists?(DB_FILE)
+  File.delete(DB_FILE) if File.exists?(DB_FILE)
 end

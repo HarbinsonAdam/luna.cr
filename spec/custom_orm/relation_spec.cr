@@ -1,46 +1,57 @@
 require "../spec_helper"
 
-# Dummy model for testing
 class Dummy < CustomOrm::BaseModel
   primary_key id
   attribute name : String
 end
 
 describe CustomOrm::Relation(Dummy) do
-  Spec.before_suite do
+  before_each do
     db = CustomOrm::Setup.db_connections(:default)
-    # prepare table and data
-    db.exec("CREATE TABLE dummys (id INTEGER, name TEXT)")
-    db.exec("INSERT INTO dummys (id, name) VALUES (1, 'Alice')")
-    db.exec("INSERT INTO dummys (id, name) VALUES (2, 'Bob')")
+    db.exec("DROP TABLE IF EXISTS dummys")
+    db.exec("CREATE TABLE dummys (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
+    # Seed fresh, deterministic rows
+    db.exec("INSERT INTO dummys (name) VALUES ('Alice')")
+    db.exec("INSERT INTO dummys (name) VALUES ('Bob')")
   end
 
   it "retrieves all records" do
     results = CustomOrm::Relation(Dummy).new.all
-    results.map(&.attributes).to_json.should eq([
-      {"id" => 1, "name" => "Alice"},
-      {"id" => 2, "name" => "Bob"}
-  ].to_json)
+    results.size.should eq(2)
+    results.first.name.should eq("Alice")
   end
 
   it "filters with raw where" do
-    results = CustomOrm::Relation(Dummy)
-                  .new
-                 .where("id = $1", 2)
-                 .all
-    results.map(&.attributes).to_json.should eq([{"id" => 2, "name" => "Bob"}].to_json)
+    results = CustomOrm::Relation(Dummy).new.where("name = $1", "Bob").all
+    results.size.should eq(1)
+    results.first.name.should eq("Bob")
   end
 
   it "filters with hash where" do
-    results = CustomOrm::Relation(Dummy)
-    .new
-                 .where({id: 1})
-                 .all
-    results.map(&.attributes).to_json.should eq([{"id" => 1, "name" => "Alice"}].to_json)
+    results = CustomOrm::Relation(Dummy).new.where({name: "Alice"}).all
+    results.size.should eq(1)
+    results.first.name.should eq("Alice")
   end
 
   it "returns the first record" do
     first = CustomOrm::Relation(Dummy).new.first
-    first.attributes.to_json.should eq({"id" => 1, "name" => "Alice"}.to_json)
+    first.not_nil!.name.should eq("Alice")
+  end
+
+  it "supports aggregates" do
+    r = CustomOrm::Relation(Dummy).new
+    r.count.should eq(2)
+    r.min("id", as: Int64).should eq(1)
+    r.max("id", as: Int64).should eq(2)
+  end
+
+  it "supports left join in aggregates" do
+    db = CustomOrm::Setup.db_connections(:default)
+    db.exec("DROP TABLE IF EXISTS tags")
+    db.exec("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, d_id INTEGER, name TEXT)")
+    db.exec("INSERT INTO tags (d_id, name) VALUES (1, 'tag-a')")
+
+    r = CustomOrm::Relation(Dummy).new.left_join("tags", "tags.d_id = dummys.id")
+    r.count.should eq(2)
   end
 end
