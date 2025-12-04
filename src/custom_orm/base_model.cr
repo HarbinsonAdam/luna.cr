@@ -87,9 +87,10 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
           invalid_fields = changed_attributes.keys.select { |k| errors.any? { |e| e.field.to_s == k.to_s } }
           raise RecordNotValidError.new(errors) unless invalid_fields.empty?
 
-          upd = QueryBuilder.update(table_name, changed_attributes.compact!, primary_key)
-          sql = upd.to_sql
-          params = upd.bound_params
+          db_data = to_db_hash(changed_attributes.compact!)
+          upd     = QueryBuilder.update(table_name, db_data, primary_key)
+          sql     = upd.to_sql
+          params  = upd.bound_params
 
           if dialect_supports_returning?
             CustomOrm::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
@@ -107,9 +108,10 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
           invalid_fields = attributes.compact!.keys.select { |k| errors.any? { |e| e.field.to_s == k.to_s } }
           raise RecordNotValidError.new(errors) unless invalid_fields.empty?
 
-          ins = QueryBuilder.insert_into(table_name, attributes.compact!)
-          sql = ins.to_sql
-          params = ins.bound_params
+          db_data = to_db_hash(attributes.compact!)
+          ins     = QueryBuilder.insert_into(table_name, db_data)
+          sql     = ins.to_sql
+          params  = ins.bound_params
 
           if dialect_supports_returning?
             CustomOrm::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
@@ -135,9 +137,10 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
         invalid_fields = changed_attributes.keys.select { |k| errors.any? { |e| e.field.to_s == k.to_s } }
         raise RecordNotValidError.new(errors) unless invalid_fields.empty?
 
-        upd = QueryBuilder.update(table_name, changed_attributes.compact!, primary_key)
-        sql = upd.to_sql
-        params = upd.bound_params
+        db_data = to_db_hash(changed_attributes.compact!)
+        upd     = QueryBuilder.update(table_name, db_data, primary_key)
+        sql     = upd.to_sql
+        params  = upd.bound_params
 
         if dialect_supports_returning?
           CustomOrm::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
@@ -248,5 +251,26 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
     name_parts = klass.name.split("::")
     table_name = name_parts.size == 3 ? name_parts[1].underscore : name_parts.last.underscore
     "#{table_name}s"
+  end
+
+  private def to_db_hash(attrs : Hash(Symbol, _)) : Hash(Symbol, DB::Any)
+    out = Hash(Symbol, DB::Any).new
+    attrs.each do |key, value|
+      out[key] = to_db_value(value)
+    end
+    out
+  end
+
+  private def to_db_value(value) : DB::Any
+    case value
+    when JSON::Any
+      # store JSON as text in the DB (for json/jsonb columns)
+      value.to_json
+    when String, Int32, Int64, Bool, Float32, Float64, Time, Nil, Slice(UInt8)
+      value
+    else
+      # You can adjust this if you later add more custom types
+      raise "Unsupported DB value type: #{value.class}"
+    end
   end
 end
