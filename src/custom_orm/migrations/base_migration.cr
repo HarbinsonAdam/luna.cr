@@ -29,6 +29,12 @@ module CustomOrm
     end
 
     # ---- SQL passthrough ----
+    def execute(sql : String)
+      db  = Setup.db_connections(@connection_name)
+      dia = Setup.dialect(@connection_name)
+      Exec.exec(db, sql, [] of DB::Any, dia)
+    end
+
     def execute(sql : String, *params : DB::Any)
       db  = Setup.db_connections(@connection_name)
       dia = Setup.dialect(@connection_name)
