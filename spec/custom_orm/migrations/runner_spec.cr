@@ -32,6 +32,17 @@ class TestMigrationRunner < CustomOrm::MigrationRunner
   end
 end
 
+# Stub runner so we don't need a DB connection for these unit tests
+class StubPendingRunner < CustomOrm::MigrationRunner
+  def initialize(@stub_pending : Array(String))
+    super(:default, false)
+  end
+
+  def pending_versions : Array(String)
+    @stub_pending
+  end
+end
+
 describe CustomOrm::MigrationRunner do
   it "registers migrations via register_on_inherit macro" do
     migrations = CustomOrm::MigrationRunner.migrations
@@ -64,6 +75,18 @@ describe CustomOrm::MigrationRunner do
       expect_raises(Exception, /Cannot infer migration version/) do
         runner.version_for(klass)
       end
+    end
+  end
+
+  describe "#all_migrations_applied?" do
+    it "returns true when there are no pending migrations" do
+      runner = StubPendingRunner.new([] of String)
+      runner.all_migrations_applied?.should be_true
+    end
+
+    it "returns false when there are pending migrations" do
+      runner = StubPendingRunner.new(["20250101010101"])
+      runner.all_migrations_applied?.should be_false
     end
   end
 end

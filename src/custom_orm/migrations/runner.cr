@@ -10,6 +10,26 @@ module CustomOrm
 
     def initialize(@connection_name : Symbol = :default, @verbose : Bool = true); end
 
+    # Returns true if every known migration class has a row in schema_migrations
+    def all_migrations_applied? : Bool
+      pending_versions.empty?
+    end
+
+    # Returns migration versions that exist in code but are not yet applied in DB
+    def pending_versions : Array(String)
+      db  = Setup.db_connections(@connection_name)
+      dia = Setup.dialect(@connection_name)
+      ensure_schema_migrations(db, dia)
+
+      applied = migrated_versions(db, dia)
+
+      known = self.class.migrations
+        .map { |k| migration_version(k) }
+        .sort
+
+      known.reject { |v| applied.includes?(v) }
+    end
+
     def run_migrations
       db  = Setup.db_connections(@connection_name)
       dia = Setup.dialect(@connection_name)
@@ -24,7 +44,6 @@ module CustomOrm
 
         puts "== #{version} #{klass.name} : migrating" if @verbose
         db.transaction do |tx|
-          # ensure all execs use the tx connection (matches your model tx behavior)
           CustomOrm::Context.with_connection(tx.connection) do
             klass.new(@connection_name).change
             Exec.exec(db, "INSERT INTO schema_migrations (version) VALUES ($1)", [version] of DB::Any, dia)
