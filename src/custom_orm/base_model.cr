@@ -187,6 +187,7 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
         {% end %}
       end
       stuff.fetched = true
+      stuff.clear_changes_information # Ensure original data is not overwritten on update
       stuff
     end
   end
