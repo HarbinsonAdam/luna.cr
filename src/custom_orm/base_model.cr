@@ -1,9 +1,13 @@
 abstract class CustomOrm::BaseModel < ActiveModel::Model
   include ActiveModel::Callbacks
   include ActiveModel::Validation
+  include CustomOrm::Associations
 
-  @@connection_name = :default
-  @@primary_key_field : String = "id"
+  macro inherited
+    # Create per-subclass copies (prevents cross-model leakage)
+    @@connection_name : Symbol = :default
+    @@primary_key_field : String = "id"
+  end
   setter fetched : Bool = false
 
   # --- Macros ---
@@ -55,6 +59,11 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
 
   def self.where(filters : Hash(Symbol, DB::Any) | NamedTuple) : Array(self)
     Relation(self).new.where(filters).all
+  end
+
+  def self.__eager_load(records : Array(self), includes : Array(Symbol))
+    return if includes.empty?
+    raise "Unknown include(s) #{includes} for #{self.name} (no associations defined)"
   end
 
   # --- Instance persistence ---
@@ -272,6 +281,41 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
     else
       # You can adjust this if you later add more custom types
       raise "Unsupported DB value type: #{value.class}"
+    end
+  end
+
+  def read_attribute(key : String) : DB::Any
+    attributes.each do |k, v|
+      return v.as(DB::Any) if k.to_s == key
+    end
+    raise KeyError.new("Unknown attribute #{key}")
+  end
+
+  def read_attribute?(key : String) : DB::Any?
+    attributes.each do |k, v|
+      return v.as(DB::Any) if k.to_s == key
+    end
+    nil
+  end
+
+  macro __define_preload_setter__
+    def set_preloaded(name : Symbol, value)
+      case name
+      {% for ivar in @type.instance_vars %}
+        {% if ivar.name.starts_with?("__preloaded_") %}
+          when {{ ivar.name["__preloaded_".size..-1].id.symbolize }}
+            @{{ ivar.name.id }} = value.as({{ ivar.type }})
+        {% end %}
+      {% end %}
+      else
+        # ignore unknown associations
+      end
+    end
+  end
+
+  macro inherited
+    macro finished
+      __define_preload_setter__
     end
   end
 end

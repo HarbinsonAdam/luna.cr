@@ -7,6 +7,7 @@ module CustomOrm
     @table : String
     @model : T.class
     @query : CustomOrm::QueryBuilder::Select
+    @includes = [] of Symbol
 
     def initialize
       @model = T
@@ -27,6 +28,11 @@ module CustomOrm
 
     def where(filters : NamedTuple)
       @query = CustomOrm::QueryBuilder.select_by(@table, filters)
+      self
+    end
+
+    def where_in(column : String, vals : Array(DB::Any))
+      @query.where_in(column, vals)
       self
     end
 
@@ -68,6 +74,11 @@ module CustomOrm
       @query.offset(n); self
     end
 
+    def includes(*assocs : Symbol)
+      @includes.concat(assocs)
+      self
+    end
+
     def to_sql
       @query.to_sql
     end
@@ -75,13 +86,19 @@ module CustomOrm
     def all : Array(T)
       db = @model.db_connection
       dialect = @model.db_dialect
-      out = [] of T
+      records = [] of T
+
       CustomOrm::Exec.query_all(db, to_sql, @query.bound_params, dialect) do |rs|
         while rs.move_next
-          out << @model.from_db_rs(rs)
+          records << @model.from_db_rs(rs)
         end
       end
-      out
+
+      unless @includes.empty?
+        @model.__eager_load(records, @includes)
+      end
+
+      records
     end
 
     def first : T?

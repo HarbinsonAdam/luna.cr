@@ -135,6 +135,16 @@ module CustomOrm::QueryBuilder
       self
     end
 
+    def where_in(column : String, vals : Array(DB::Any))
+      return self if vals.empty?
+
+      base = @params.size + 1
+      placeholders = vals.each_index.map { |i| CustomOrm::QueryBuilder.ph(base + i) }.join(", ")
+      @where_clauses << "#{column} IN (#{placeholders})"
+      @params.concat(vals)
+      self
+    end
+
     def to_sql
       sql = "SELECT #{@columns.join(", ")} FROM #{@table}"
       unless @joins.empty?
