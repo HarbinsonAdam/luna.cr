@@ -1,13 +1,14 @@
 # src/custom_orm/relation.cr
 require "./exec"
 require "./query_builder"
+require "./include_paths"
 
 module CustomOrm
   class Relation(T)
     @table : String
     @model : T.class
     @query : CustomOrm::QueryBuilder::Select
-    @includes = [] of Symbol
+    @includes_paths : Array(Array(Symbol)) = [] of Array(Symbol)
 
     def initialize
       @model = T
@@ -74,8 +75,20 @@ module CustomOrm
       @query.offset(n); self
     end
 
-    def includes(*assocs : Symbol)
-      @includes.concat(assocs)
+    def includes(*incs : Symbol)
+      @includes_paths.concat(CustomOrm::IncludePaths.build(*incs))
+      self
+    end
+
+    # keywords only (THIS fixes includes(posts: :comments))
+    def includes(**nested)
+      @includes_paths.concat(CustomOrm::IncludePaths.build(**nested))
+      self
+    end
+
+    # both
+    def includes(*incs : Symbol, **nested)
+      @includes_paths.concat(CustomOrm::IncludePaths.build(*incs, **nested))
       self
     end
 
@@ -94,8 +107,8 @@ module CustomOrm
         end
       end
 
-      unless @includes.empty?
-        @model.__eager_load(records, @includes)
+      unless @includes_paths.empty?
+        @model.__eager_load_paths(records, @includes_paths)
       end
 
       records
