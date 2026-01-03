@@ -3,11 +3,17 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
   include ActiveModel::Validation
   include CustomOrm::Associations
 
-  macro inherited
-    # Create per-subclass copies (prevents cross-model leakage)
-    @@connection_name : Symbol = :default
-    @@primary_key_field : String = "id"
-  end
+  # inside CustomOrm::BaseModel
+
+  @[JSON::Field(ignore: true)]
+  @__preloaded_one : Hash(Symbol, CustomOrm::BaseModel?) = Hash(Symbol, CustomOrm::BaseModel?).new
+
+  @[JSON::Field(ignore: true)]
+  @__preloaded_many : Hash(Symbol, Array(CustomOrm::BaseModel)) = Hash(Symbol, Array(CustomOrm::BaseModel)).new
+
+  @@connection_name : Symbol = :default
+  @@primary_key_field : String = "id"
+
   setter fetched : Bool = false
 
   # --- Macros ---
@@ -61,10 +67,10 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
     Relation(self).new.where(filters).all
   end
 
-  def self.__eager_load(records : Array(self), includes : Array(Symbol))
-    return if includes.empty?
-    raise "Unknown include(s) #{includes} for #{self.name} (no associations defined)"
+  def self.__eager_load_paths(records : Array(self), paths : Array(Array(Symbol)))
+    # overwritten by Associations.inherited macro
   end
+
 
   # --- Instance persistence ---
   def self.connection_name : Symbol
