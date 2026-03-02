@@ -1,6 +1,7 @@
 abstract class Luna::BaseModel < ActiveModel::Model
   include ActiveModel::Callbacks
   include ActiveModel::Validation
+  include Luna::Sti
   include Luna::Associations
 
   # inside Luna::BaseModel
@@ -39,8 +40,8 @@ abstract class Luna::BaseModel < ActiveModel::Model
     @@primary_key_field
   end
 
-  def self.all : Array(self)
-    Relation(self).new.all
+  def self.all : Relation(self)
+    rel
   end
 
   def self.find(id : Int64) : self?
@@ -59,18 +60,21 @@ abstract class Luna::BaseModel < ActiveModel::Model
     find_by(filters) || raise(RecordNotFound.new("#{self.name} not found for #{filters}"))
   end
 
-  def self.where(cond : String, *params : DB::Any) : Array(self)
-    Relation(self).new.where(cond, *params).all
+  def self.where(cond : String, *params : DB::Any) : Relation(self)
+    Relation(self).new.where(cond, *params)
   end
 
-  def self.where(filters : Hash(Symbol, DB::Any) | NamedTuple) : Array(self)
-    Relation(self).new.where(filters).all
+  def self.where(filters : Hash(Symbol, DB::Any) | NamedTuple) : Relation(self)
+    Relation(self).new.where(filters)
   end
 
   def self.__eager_load_paths(records : Array(self), paths : Array(Array(Symbol)))
     # overwritten by Associations.inherited macro
   end
 
+  def self.from_db_row(rs : DB::ResultSet) : self
+    from_db_rs(rs)
+  end
 
   # --- Instance persistence ---
   def self.connection_name : Symbol
@@ -98,6 +102,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
     run_save_callbacks do
       if @fetched
         run_update_callbacks do
+          apply_sti_discriminator!
           valid?
           invalid_fields = changed_attributes.keys.select { |k| errors.any? { |e| e.field.to_s == k.to_s } }
           raise RecordNotValidError.new(errors) unless invalid_fields.empty?
@@ -119,6 +124,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
         end
       else
         run_create_callbacks do
+          apply_sti_discriminator!
           valid?
           invalid_fields = attributes.compact!.keys.select { |k| errors.any? { |e| e.field.to_s == k.to_s } }
           raise RecordNotValidError.new(errors) unless invalid_fields.empty?
@@ -148,6 +154,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
     return unless @fetched
     run_save_callbacks do
       run_update_callbacks do
+        apply_sti_discriminator!
         valid?
         invalid_fields = changed_attributes.keys.select { |k| errors.any? { |e| e.field.to_s == k.to_s } }
         raise RecordNotValidError.new(errors) unless invalid_fields.empty?
@@ -191,6 +198,25 @@ abstract class Luna::BaseModel < ActiveModel::Model
 
   # --- Row mapping macro hook ---
   macro __customize_orm__
+    def __assign_field_from_db_any(column_name : String, value : DB::Any)
+      case column_name
+      {% for key, opts in FIELDS %}
+        when {{key.stringify}}
+          {% if opts[:klass].resolve.nilable? %}
+            if value.nil?
+              self.{{key}} = nil
+            else
+              self.{{key}} = value.as({{opts[:klass]}})
+            end
+          {% else %}
+            self.{{key}} = value.as({{opts[:klass]}})
+          {% end %}
+      {% end %}
+      else
+        # ignore unknown columns
+      end
+    end
+
     def self.from_db_rs(rs : DB::ResultSet) : self
       stuff = new
       rs.each_column do |column_name|
@@ -209,6 +235,26 @@ abstract class Luna::BaseModel < ActiveModel::Model
 
   def self.rel
     Relation(self).new
+  end
+
+  def self.order(*cols : String) : Relation(self)
+    rel.order(*cols)
+  end
+
+  def self.limit(n : Int32) : Relation(self)
+    rel.limit(n)
+  end
+
+  def self.offset(n : Int32) : Relation(self)
+    rel.offset(n)
+  end
+
+  def self.select(*cols : String) : Relation(self)
+    rel.select(*cols)
+  end
+
+  def self.includes(*incs : Symbol, **nested) : Relation(self)
+    rel.includes(*incs, **nested)
   end
 
   # Aggregates & helpers (class level)
@@ -243,9 +289,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
 
   # Transactions
   def self.transaction(&block)
-    db_connection.transaction do |tx|
-      Luna::Context.with_connection(tx.connection) { yield }
-    end
+    Luna.transaction(connection_name) { yield }
   end
 
   # --- Table name helpers ---
@@ -288,6 +332,10 @@ abstract class Luna::BaseModel < ActiveModel::Model
       # You can adjust this if you later add more custom types
       raise "Unsupported DB value type: #{value.class}"
     end
+  end
+
+  def __assign_field_from_db_any(column_name : String, value : DB::Any)
+    # overridden by __customize_orm__
   end
 
   def read_attribute(key : String) : DB::Any

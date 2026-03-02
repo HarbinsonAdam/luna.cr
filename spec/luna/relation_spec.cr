@@ -33,6 +33,15 @@ describe Luna::Relation(Dummy) do
     results.first.name.should eq("Alice")
   end
 
+  it "keeps existing clauses when chaining hash where" do
+    results = Luna::Relation(Dummy).new
+      .where("id > $1", 0)
+      .where({name: "Bob"})
+      .all
+    results.size.should eq(1)
+    results.first.name.should eq("Bob")
+  end
+
   it "returns the first record" do
     first = Luna::Relation(Dummy).new.first
     first.not_nil!.name.should eq("Alice")
