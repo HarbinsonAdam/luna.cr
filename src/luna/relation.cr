@@ -13,6 +13,11 @@ module Luna
       @model = T
       @table = T.table_name
       @query = Luna::QueryBuilder.select_all(@table)
+
+      if (sti_column = @model.sti_column_name) && (sti_value = @model.sti_scope_type_value)
+        escaped = sti_value.gsub("'", "''")
+        @query.where_array("#{sti_column} = '#{escaped}'", [] of DB::Any)
+      end
     end
 
     # WHERE variants
@@ -22,12 +27,12 @@ module Luna
     end
 
     def where(filters : Hash(Symbol, DB::Any))
-      @query = Luna::QueryBuilder.select_by(@table, filters)
+      @query.where_hash(filters)
       self
     end
 
     def where(filters : NamedTuple)
-      @query = Luna::QueryBuilder.select_by(@table, filters)
+      @query.where_hash(filters)
       self
     end
 
@@ -95,14 +100,14 @@ module Luna
       @query.to_sql
     end
 
-    def all : Array(T)
+    private def run_select(query : Luna::QueryBuilder::Select) : Array(T)
       db = @model.db_connection
       dialect = @model.db_dialect
       records = [] of T
 
-      Luna::Exec.query_all(db, to_sql, @query.bound_params, dialect) do |rs|
+      Luna::Exec.query_all(db, query.to_sql, query.bound_params, dialect) do |rs|
         while rs.move_next
-          records << @model.from_db_rs(rs)
+          records << @model.from_db_row(rs)
         end
       end
 
@@ -113,9 +118,18 @@ module Luna
       records
     end
 
+    def all : Array(T)
+      run_select(@query)
+    end
+
+    def to_a : Array(T)
+      all
+    end
+
     def first : T?
-      limit(1)
-      all.first?
+      query = @query
+      query.limit(1)
+      run_select(query).first?
     end
 
     # ------------------------

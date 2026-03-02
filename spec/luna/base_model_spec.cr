@@ -76,6 +76,14 @@ describe "BaseModel" do
       names.sort!.should eq(["A", "B"])
     end
 
+    it "supports relation-style class chaining" do
+      Website.new(name: "A", active: true).save
+      Website.new(name: "B", active: false).save
+      results = Website.where({active: true}).order("id ASC").all
+      results.size.should eq(1)
+      results.first.name.should eq("A")
+    end
+
     it "executes inside a transaction" do
       begin
         Website.transaction do
@@ -86,6 +94,14 @@ describe "BaseModel" do
         # noop
       end
       Website.exists?({name: "TX"}).should be_false
+    end
+
+    it "rolls back and swallows Luna::Rollback" do
+      Luna.transaction do
+        Website.new(name: "TX2", active: true).save
+        raise Luna::Rollback.new
+      end
+      Website.exists?({name: "TX2"}).should be_false
     end
   end
 end

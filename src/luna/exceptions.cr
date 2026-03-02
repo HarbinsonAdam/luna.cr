@@ -22,4 +22,7 @@ module Luna
       super(@message)
     end
   end
+
+  class Rollback < Exception
+  end
 end
