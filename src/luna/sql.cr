@@ -1,6 +1,6 @@
 require "uri"
 
-module CustomOrm
+module Luna
   module SQL
     enum Dialect
       Pg

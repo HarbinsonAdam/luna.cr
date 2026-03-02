@@ -1,12 +1,11 @@
-# src/custom_orm/migrations/runner.cr
 require "./base_migration"
 require "../exec"
 require "../setup"
 require "../context"  # if you added the tx connection context
 
-module CustomOrm
+module Luna
   class MigrationRunner
-    class_getter migrations = [] of CustomOrm::BaseMigration.class
+    class_getter migrations = [] of Luna::BaseMigration.class
 
     def initialize(@connection_name : Symbol = :default, @verbose : Bool = true); end
 
@@ -44,7 +43,7 @@ module CustomOrm
 
         puts "== #{version} #{klass.name} : migrating" if @verbose
         db.transaction do |tx|
-          CustomOrm::Context.with_connection(tx.connection) do
+          Luna::Context.with_connection(tx.connection) do
             klass.new(@connection_name).change
             Exec.exec(db, "INSERT INTO schema_migrations (version) VALUES ($1)", [version] of DB::Any, dia)
           end
@@ -72,7 +71,7 @@ module CustomOrm
       Set(String).new
     end
 
-    private def migration_version(klass : CustomOrm::BaseMigration.class) : String
+    private def migration_version(klass : Luna::BaseMigration.class) : String
       name = klass.name
       if m = name.match(/V(\d{8,})/)
         m[1]

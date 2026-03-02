@@ -1,4 +1,4 @@
-module CustomOrm
+module Luna
   # Global transaction helper (uses :default)
   def self.transaction(&block)
     db = Setup.pool(:default) rescue nil

@@ -1,13 +1,13 @@
 require "../spec_helper"
 
-class Dummy < CustomOrm::BaseModel
+class Dummy < Luna::BaseModel
   primary_key id
   attribute name : String
 end
 
-describe CustomOrm::Relation(Dummy) do
+describe Luna::Relation(Dummy) do
   before_each do
-    db = CustomOrm::Setup.db_connections(:default)
+    db = Luna::Setup.db_connections(:default)
     db.exec("DROP TABLE IF EXISTS dummys")
     db.exec("CREATE TABLE dummys (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
     # Seed fresh, deterministic rows
@@ -16,42 +16,42 @@ describe CustomOrm::Relation(Dummy) do
   end
 
   it "retrieves all records" do
-    results = CustomOrm::Relation(Dummy).new.all
+    results = Luna::Relation(Dummy).new.all
     results.size.should eq(2)
     results.first.name.should eq("Alice")
   end
 
   it "filters with raw where" do
-    results = CustomOrm::Relation(Dummy).new.where("name = $1", "Bob").all
+    results = Luna::Relation(Dummy).new.where("name = $1", "Bob").all
     results.size.should eq(1)
     results.first.name.should eq("Bob")
   end
 
   it "filters with hash where" do
-    results = CustomOrm::Relation(Dummy).new.where({name: "Alice"}).all
+    results = Luna::Relation(Dummy).new.where({name: "Alice"}).all
     results.size.should eq(1)
     results.first.name.should eq("Alice")
   end
 
   it "returns the first record" do
-    first = CustomOrm::Relation(Dummy).new.first
+    first = Luna::Relation(Dummy).new.first
     first.not_nil!.name.should eq("Alice")
   end
 
   it "supports aggregates" do
-    r = CustomOrm::Relation(Dummy).new
+    r = Luna::Relation(Dummy).new
     r.count.should eq(2)
     r.min("id", as: Int64).should eq(1)
     r.max("id", as: Int64).should eq(2)
   end
 
   it "supports left join in aggregates" do
-    db = CustomOrm::Setup.db_connections(:default)
+    db = Luna::Setup.db_connections(:default)
     db.exec("DROP TABLE IF EXISTS tags")
     db.exec("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, d_id INTEGER, name TEXT)")
     db.exec("INSERT INTO tags (d_id, name) VALUES (1, 'tag-a')")
 
-    r = CustomOrm::Relation(Dummy).new.left_join("tags", "tags.d_id = dummys.id")
+    r = Luna::Relation(Dummy).new.left_join("tags", "tags.d_id = dummys.id")
     r.count.should eq(2)
   end
 end

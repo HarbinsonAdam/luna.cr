@@ -1,19 +1,18 @@
-# src/custom_orm/relation.cr
 require "./exec"
 require "./query_builder"
 require "./include_paths"
 
-module CustomOrm
+module Luna
   class Relation(T)
     @table : String
     @model : T.class
-    @query : CustomOrm::QueryBuilder::Select
+    @query : Luna::QueryBuilder::Select
     @includes_paths : Array(Array(Symbol)) = [] of Array(Symbol)
 
     def initialize
       @model = T
       @table = T.table_name
-      @query = CustomOrm::QueryBuilder.select_all(@table)
+      @query = Luna::QueryBuilder.select_all(@table)
     end
 
     # WHERE variants
@@ -23,12 +22,12 @@ module CustomOrm
     end
 
     def where(filters : Hash(Symbol, DB::Any))
-      @query = CustomOrm::QueryBuilder.select_by(@table, filters)
+      @query = Luna::QueryBuilder.select_by(@table, filters)
       self
     end
 
     def where(filters : NamedTuple)
-      @query = CustomOrm::QueryBuilder.select_by(@table, filters)
+      @query = Luna::QueryBuilder.select_by(@table, filters)
       self
     end
 
@@ -76,19 +75,19 @@ module CustomOrm
     end
 
     def includes(*incs : Symbol)
-      @includes_paths.concat(CustomOrm::IncludePaths.build(*incs))
+      @includes_paths.concat(Luna::IncludePaths.build(*incs))
       self
     end
 
     # keywords only (THIS fixes includes(posts: :comments))
     def includes(**nested)
-      @includes_paths.concat(CustomOrm::IncludePaths.build(**nested))
+      @includes_paths.concat(Luna::IncludePaths.build(**nested))
       self
     end
 
     # both
     def includes(*incs : Symbol, **nested)
-      @includes_paths.concat(CustomOrm::IncludePaths.build(*incs, **nested))
+      @includes_paths.concat(Luna::IncludePaths.build(*incs, **nested))
       self
     end
 
@@ -101,7 +100,7 @@ module CustomOrm
       dialect = @model.db_dialect
       records = [] of T
 
-      CustomOrm::Exec.query_all(db, to_sql, @query.bound_params, dialect) do |rs|
+      Luna::Exec.query_all(db, to_sql, @query.bound_params, dialect) do |rs|
         while rs.move_next
           records << @model.from_db_rs(rs)
         end
@@ -132,7 +131,7 @@ module CustomOrm
       expr    = distinct && column != "*" ? "COUNT(DISTINCT #{column})" : "COUNT(#{column})"
       db      = @model.db_connection
       dialect = @model.db_dialect
-      CustomOrm::Exec.query_one(db, aggregate_sql(expr), @query.bound_params, dialect, as: Int64)
+      Luna::Exec.query_one(db, aggregate_sql(expr), @query.bound_params, dialect, as: Int64)
     end
 
     def exists? : Bool
@@ -146,7 +145,7 @@ module CustomOrm
       db = @model.db_connection
       dialect = @model.db_dialect
       out = [] of TVal
-      CustomOrm::Exec.query_all(db, q.to_sql, q.bound_params, dialect) do |rs|
+      Luna::Exec.query_all(db, q.to_sql, q.bound_params, dialect) do |rs|
         while rs.move_next
           out << rs.read(TVal)
         end
@@ -157,28 +156,28 @@ module CustomOrm
     # Numeric aggregates (typed)
     def sum(column : String, as : TNum.class) : TNum? forall TNum
       db = @model.db_connection; dialect = @model.db_dialect
-      CustomOrm::Exec.query_one(db, aggregate_sql("SUM(#{column})"), @query.bound_params, dialect, as: TNum)
+      Luna::Exec.query_one(db, aggregate_sql("SUM(#{column})"), @query.bound_params, dialect, as: TNum)
     rescue DB::NoResultsError
       nil
     end
 
     def avg(column : String, as : TNum.class) : TNum? forall TNum
       db = @model.db_connection; dialect = @model.db_dialect
-      CustomOrm::Exec.query_one(db, aggregate_sql("AVG(#{column})"), @query.bound_params, dialect, as: TNum)
+      Luna::Exec.query_one(db, aggregate_sql("AVG(#{column})"), @query.bound_params, dialect, as: TNum)
     rescue DB::NoResultsError
       nil
     end
 
     def min(column : String, as : TVal.class) : TVal? forall TVal
       db = @model.db_connection; dialect = @model.db_dialect
-      CustomOrm::Exec.query_one(db, aggregate_sql("MIN(#{column})"), @query.bound_params, dialect, as: TVal)
+      Luna::Exec.query_one(db, aggregate_sql("MIN(#{column})"), @query.bound_params, dialect, as: TVal)
     rescue DB::NoResultsError
       nil
     end
 
     def max(column : String, as : TVal.class) : TVal? forall TVal
       db = @model.db_connection; dialect = @model.db_dialect
-      CustomOrm::Exec.query_one(db, aggregate_sql("MAX(#{column})"), @query.bound_params, dialect, as: TVal)
+      Luna::Exec.query_one(db, aggregate_sql("MAX(#{column})"), @query.bound_params, dialect, as: TVal)
     rescue DB::NoResultsError
       nil
     end

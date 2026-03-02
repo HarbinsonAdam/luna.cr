@@ -1,23 +1,22 @@
-# src/custom_orm/associations.cr
-module CustomOrm::Associations
+module Luna::Associations
   macro included
     macro inherited
       # ------------------------------------------------------------
       # Default preload hooks (overridden per-association via previous_def)
       # ------------------------------------------------------------
-      def set_preloaded(name : Symbol, value : CustomOrm::BaseModel?)
+      def set_preloaded(name : Symbol, value : Luna::BaseModel?)
         # default: ignore
       end
 
-      def set_preloaded_many(name : Symbol, value : Array(CustomOrm::BaseModel))
+      def set_preloaded_many(name : Symbol, value : Array(Luna::BaseModel))
         # default: ignore
       end
 
-      def get_preloaded(name : Symbol) : CustomOrm::BaseModel?
+      def get_preloaded(name : Symbol) : Luna::BaseModel?
         nil
       end
 
-      def get_preloaded_many(name : Symbol) : Array(CustomOrm::BaseModel)?
+      def get_preloaded_many(name : Symbol) : Array(Luna::BaseModel)?
         nil
       end
 
@@ -50,12 +49,12 @@ module CustomOrm::Associations
       end
 
       # This gets overridden per association macro to route to the right klass
-      private def self.__eager_load_children_for(first : Symbol, children : Array(CustomOrm::BaseModel), next_paths : Array(Array(Symbol)))
+      private def self.__eager_load_children_for(first : Symbol, children : Array(Luna::BaseModel), next_paths : Array(Array(Symbol)))
         # default: do nothing
       end
 
-      private def self.__collect_children_for(records : Array(self), inc : Symbol) : Array(CustomOrm::BaseModel)
-        out = [] of CustomOrm::BaseModel
+      private def self.__collect_children_for(records : Array(self), inc : Symbol) : Array(Luna::BaseModel)
+        out = [] of Luna::BaseModel
 
         # try single preload store
         records.each do |r|
@@ -141,7 +140,7 @@ module CustomOrm::Associations
           key = r.read_attribute(pk).as(DB::Any)
           # IMPORTANT: we pass Array(K) into the per-association setter (generated below)
           arr = grouped[key]? || [] of K
-          r.set_preloaded_many(name, arr.map(&.as(CustomOrm::BaseModel)))
+          r.set_preloaded_many(name, arr.map(&.as(Luna::BaseModel)))
         end
       end
     end
@@ -159,7 +158,7 @@ module CustomOrm::Associations
     @__preloaded_{{assoc}} : {{klass}}? = nil
 
     # preload hooks
-    def set_preloaded(name : Symbol, value : CustomOrm::BaseModel?)
+    def set_preloaded(name : Symbol, value : Luna::BaseModel?)
       if name == {{assoc.symbolize}}
         @__preloaded_{{assoc}} = value.as({{klass}}?)
         return
@@ -167,7 +166,7 @@ module CustomOrm::Associations
       previous_def
     end
 
-    def get_preloaded(name : Symbol) : CustomOrm::BaseModel?
+    def get_preloaded(name : Symbol) : Luna::BaseModel?
       return @__preloaded_{{assoc}} if name == {{assoc.symbolize}}
       previous_def
     end
@@ -182,7 +181,7 @@ module CustomOrm::Associations
     end
 
     # eager loader dispatch (recurse)
-    private def self.__eager_load_children_for(first : Symbol, children : Array(CustomOrm::BaseModel), next_paths : Array(Array(Symbol)))
+    private def self.__eager_load_children_for(first : Symbol, children : Array(Luna::BaseModel), next_paths : Array(Array(Symbol)))
       if first == {{assoc.symbolize}}
         {{klass}}.__eager_load_paths(children.compact_map(&.as?({{klass}})), next_paths)
         return
@@ -208,7 +207,7 @@ module CustomOrm::Associations
 
     @__preloaded_{{assoc}} : {{klass}}? = nil
 
-    def set_preloaded(name : Symbol, value : CustomOrm::BaseModel?)
+    def set_preloaded(name : Symbol, value : Luna::BaseModel?)
       if name == {{assoc.symbolize}}
         @__preloaded_{{assoc}} = value.as({{klass}}?)
         return
@@ -216,7 +215,7 @@ module CustomOrm::Associations
       previous_def
     end
 
-    def get_preloaded(name : Symbol) : CustomOrm::BaseModel?
+    def get_preloaded(name : Symbol) : Luna::BaseModel?
       return @__preloaded_{{assoc}} if name == {{assoc.symbolize}}
       previous_def
     end
@@ -229,7 +228,7 @@ module CustomOrm::Associations
       previous_def
     end
 
-    private def self.__eager_load_children_for(first : Symbol, children : Array(CustomOrm::BaseModel), next_paths : Array(Array(Symbol)))
+    private def self.__eager_load_children_for(first : Symbol, children : Array(Luna::BaseModel), next_paths : Array(Array(Symbol)))
       if first == {{assoc.symbolize}}
         {{klass}}.__eager_load_paths(children.compact_map(&.as?({{klass}})), next_paths)
         return
@@ -251,7 +250,7 @@ module CustomOrm::Associations
 
     @__preloaded_{{assoc}} : Array({{klass}})? = nil
 
-    def set_preloaded_many(name : Symbol, value : Array(CustomOrm::BaseModel))
+    def set_preloaded_many(name : Symbol, value : Array(Luna::BaseModel))
       if name == {{assoc.symbolize}}
         @__preloaded_{{assoc}} = value.map(&.as({{klass}}))
         return
@@ -259,9 +258,9 @@ module CustomOrm::Associations
       previous_def
     end
 
-    def get_preloaded_many(name : Symbol) : Array(CustomOrm::BaseModel)?
+    def get_preloaded_many(name : Symbol) : Array(Luna::BaseModel)?
       if name == {{assoc.symbolize}}
-        return @__preloaded_{{assoc}}.try &.map(&.as(CustomOrm::BaseModel))
+        return @__preloaded_{{assoc}}.try &.map(&.as(Luna::BaseModel))
       end
       previous_def
     end
@@ -274,7 +273,7 @@ module CustomOrm::Associations
       previous_def
     end
 
-    private def self.__eager_load_children_for(first : Symbol, children : Array(CustomOrm::BaseModel), next_paths : Array(Array(Symbol)))
+    private def self.__eager_load_children_for(first : Symbol, children : Array(Luna::BaseModel), next_paths : Array(Array(Symbol)))
       if first == {{assoc.symbolize}}
         {{klass}}.__eager_load_paths(children.compact_map(&.as?({{klass}})), next_paths)
         return

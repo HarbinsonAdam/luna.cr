@@ -1,5 +1,4 @@
-# src/custom_orm/include_paths.cr
-module CustomOrm::IncludePaths
+module Luna::IncludePaths
   # Produces paths like:
   # [:author]
   # [:author, :posts]

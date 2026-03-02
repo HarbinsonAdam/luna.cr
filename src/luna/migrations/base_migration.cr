@@ -1,15 +1,14 @@
-# src/custom_orm/migrations/base_migration.cr
 require "../setup"
 require "../exec"
 require "../sql"
 
-module CustomOrm
+module Luna
   # Rails-ish migration base
   abstract class BaseMigration
     getter connection_name : Symbol
 
     macro inherited
-      CustomOrm::MigrationRunner.migrations << {{ @type }}
+      Luna::MigrationRunner.migrations << {{ @type }}
     end
 
     def initialize(@connection_name : Symbol = :default); end
@@ -148,18 +147,18 @@ module CustomOrm
 end
 
 # Column/type builders
-module CustomOrm::Migrations
+module Luna::Migrations
   class TableDefinition
     getter columns = [] of String
-    getter dialect : CustomOrm::SQL::Dialect
+    getter dialect : Luna::SQL::Dialect
 
-    def initialize(@dialect : CustomOrm::SQL::Dialect); end
+    def initialize(@dialect : Luna::SQL::Dialect); end
 
     def primary_key(name = "id")
       case dialect
-      when CustomOrm::SQL::Dialect::Pg
+      when Luna::SQL::Dialect::Pg
         columns << "#{name} BIGSERIAL PRIMARY KEY"
-      when CustomOrm::SQL::Dialect::Mysql
+      when Luna::SQL::Dialect::Mysql
         columns << "#{name} BIGINT PRIMARY KEY AUTO_INCREMENT"
       else
         columns << "#{name} INTEGER PRIMARY KEY AUTOINCREMENT"
@@ -168,8 +167,8 @@ module CustomOrm::Migrations
 
     def string(name : Symbol, limit : Int32? = nil, null : Bool = true, default : DB::Any? = nil)
       type = case dialect
-             when CustomOrm::SQL::Dialect::Pg     then (limit ? "VARCHAR(#{limit})" : "VARCHAR(255)")
-             when CustomOrm::SQL::Dialect::Mysql  then (limit ? "VARCHAR(#{limit})" : "VARCHAR(255)")
+             when Luna::SQL::Dialect::Pg     then (limit ? "VARCHAR(#{limit})" : "VARCHAR(255)")
+             when Luna::SQL::Dialect::Mysql  then (limit ? "VARCHAR(#{limit})" : "VARCHAR(255)")
              else "TEXT"
              end
       columns << TypeSql.build_col(name, type, dialect, null: null, default: default)
@@ -184,16 +183,16 @@ module CustomOrm::Migrations
     end
 
     def bigint(name : Symbol, null : Bool = true, default : DB::Any? = nil)
-      type = dialect == CustomOrm::SQL::Dialect::Sqlite ? "INTEGER" : "BIGINT"
+      type = dialect == Luna::SQL::Dialect::Sqlite ? "INTEGER" : "BIGINT"
       columns << TypeSql.build_col(name, type, dialect, null: null, default: default)
     end
 
     def boolean(name : Symbol, null : Bool = true, default : Bool? = nil)
-      type = dialect == CustomOrm::SQL::Dialect::Sqlite ? "INTEGER" : "BOOLEAN"
+      type = dialect == Luna::SQL::Dialect::Sqlite ? "INTEGER" : "BOOLEAN"
 
       dflt = if default.nil?
         nil
-      elsif dialect == CustomOrm::SQL::Dialect::Sqlite
+      elsif dialect == Luna::SQL::Dialect::Sqlite
         default ? 1 : 0             # becomes 1 / 0, literal handles ints fine
       else
         default                      # keep as Bool; literal() already does TRUE/FALSE
@@ -212,7 +211,7 @@ module CustomOrm::Migrations
 
     def datetime(name : Symbol, null : Bool = true, default_now : Bool = false)
       type = case dialect
-            when CustomOrm::SQL::Dialect::Pg then "TIMESTAMPTZ"
+            when Luna::SQL::Dialect::Pg then "TIMESTAMPTZ"
             else "DATETIME"
             end
 
@@ -237,14 +236,14 @@ module CustomOrm::Migrations
   class ChangeTable
     getter statements = [] of String
 
-    def initialize(@table : String, @dialect : CustomOrm::SQL::Dialect); end
+    def initialize(@table : String, @dialect : Luna::SQL::Dialect); end
 
     def add(column : Symbol, type : Symbol, **opts)
       statements << "ALTER TABLE #{@table} ADD COLUMN #{TypeSql.column_sql(column, type, @dialect, opts)}"
     end
 
     def remove(column : Symbol)
-      if @dialect == CustomOrm::SQL::Dialect::Sqlite
+      if @dialect == Luna::SQL::Dialect::Sqlite
         raise "SQLite remove(column) not supported in-place; rebuild the table"
       end
       statements << "ALTER TABLE #{@table} DROP COLUMN #{column}"
@@ -257,7 +256,7 @@ module CustomOrm::Migrations
 
   # Type mapping helpers
   module TypeSql
-    def self.column_sql(name : Symbol, type : Symbol, dialect : CustomOrm::SQL::Dialect, opts)
+    def self.column_sql(name : Symbol, type : Symbol, dialect : Luna::SQL::Dialect, opts)
       # opts is a NamedTuple from **opts in the caller
       raw_null = opts[:null]?
       null = raw_null.nil? ? true : raw_null.as(Bool)
@@ -271,23 +270,23 @@ module CustomOrm::Migrations
       )
     end
 
-    def self.sql_type_for(type : Symbol, dialect : CustomOrm::SQL::Dialect, opts)
+    def self.sql_type_for(type : Symbol, dialect : Luna::SQL::Dialect, opts)
       case type
       when :string
-        (dialect == CustomOrm::SQL::Dialect::Sqlite) ? "TEXT" : "VARCHAR(#{(opts[:limit]? || 255)})"
+        (dialect == Luna::SQL::Dialect::Sqlite) ? "TEXT" : "VARCHAR(#{(opts[:limit]? || 255)})"
       when :text      then "TEXT"
       when :integer   then "INTEGER"
-      when :bigint    then (dialect == CustomOrm::SQL::Dialect::Sqlite ? "INTEGER" : "BIGINT")
-      when :boolean   then (dialect == CustomOrm::SQL::Dialect::Sqlite ? "INTEGER" : "BOOLEAN")
+      when :bigint    then (dialect == Luna::SQL::Dialect::Sqlite ? "INTEGER" : "BIGINT")
+      when :boolean   then (dialect == Luna::SQL::Dialect::Sqlite ? "INTEGER" : "BOOLEAN")
       when :float     then "DOUBLE PRECISION"
       when :decimal   then "DECIMAL(#{(opts[:precision]? || 10)},#{(opts[:scale]? || 0)})"
-      when :datetime  then (dialect == CustomOrm::SQL::Dialect::Pg ? "TIMESTAMPTZ" : "DATETIME")
-      when :json      then (dialect == CustomOrm::SQL::Dialect::Pg ? "JSONB" : "TEXT")
+      when :datetime  then (dialect == Luna::SQL::Dialect::Pg ? "TIMESTAMPTZ" : "DATETIME")
+      when :json      then (dialect == Luna::SQL::Dialect::Pg ? "JSONB" : "TEXT")
       else raise "Unknown column type: #{type}"
       end
     end
 
-    def self.build_col(name : Symbol, type_sql : String, dialect : CustomOrm::SQL::Dialect, null : Bool, default : DB::Any?)
+    def self.build_col(name : Symbol, type_sql : String, dialect : Luna::SQL::Dialect, null : Bool, default : DB::Any?)
       out = "#{name} #{type_sql}"
       out += " NOT NULL" unless null
       if default != nil
@@ -296,14 +295,14 @@ module CustomOrm::Migrations
       out
     end
 
-    def self.literal(val : DB::Any, dialect : CustomOrm::SQL::Dialect) : String
+    def self.literal(val : DB::Any, dialect : Luna::SQL::Dialect) : String
       case val
       when String
         "'#{val.gsub("'", "''")}'"
       when Time
         "'#{val.to_utc.to_s("%Y-%m-%d %H:%M:%S")}'"
       when Bool
-        dialect == CustomOrm::SQL::Dialect::Sqlite ? (val ? "1" : "0") : (val ? "TRUE" : "FALSE")
+        dialect == Luna::SQL::Dialect::Sqlite ? (val ? "1" : "0") : (val ? "TRUE" : "FALSE")
       when Nil
         "NULL"
       else

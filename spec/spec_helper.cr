@@ -1,5 +1,5 @@
 require "spec"
-require "../src/custom-orm"
+require "../src/luna"
 
 DB_FILE = "./spec/test.db"
 
@@ -8,8 +8,8 @@ Spec.before_suite do
   File.delete(DB_FILE) if File.exists?(DB_FILE)
 
   # Register a single-connection file-based SQLite DB for both default and reports
-  CustomOrm::Setup.register :default, "sqlite3:#{DB_FILE}"
-  CustomOrm::Setup.register :reports, "sqlite3:#{DB_FILE}"
+  Luna::Setup.register :default, "sqlite3:#{DB_FILE}"
+  Luna::Setup.register :reports, "sqlite3:#{DB_FILE}"
 end
 
 Spec.after_suite do
