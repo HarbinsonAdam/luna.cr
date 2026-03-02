@@ -1,15 +1,15 @@
-abstract class CustomOrm::BaseModel < ActiveModel::Model
+abstract class Luna::BaseModel < ActiveModel::Model
   include ActiveModel::Callbacks
   include ActiveModel::Validation
-  include CustomOrm::Associations
+  include Luna::Associations
 
-  # inside CustomOrm::BaseModel
-
-  @[JSON::Field(ignore: true)]
-  @__preloaded_one : Hash(Symbol, CustomOrm::BaseModel?) = Hash(Symbol, CustomOrm::BaseModel?).new
+  # inside Luna::BaseModel
 
   @[JSON::Field(ignore: true)]
-  @__preloaded_many : Hash(Symbol, Array(CustomOrm::BaseModel)) = Hash(Symbol, Array(CustomOrm::BaseModel)).new
+  @__preloaded_one : Hash(Symbol, Luna::BaseModel?) = Hash(Symbol, Luna::BaseModel?).new
+
+  @[JSON::Field(ignore: true)]
+  @__preloaded_many : Hash(Symbol, Array(Luna::BaseModel)) = Hash(Symbol, Array(Luna::BaseModel)).new
 
   @@connection_name : Symbol = :default
   @@primary_key_field : String = "id"
@@ -32,7 +32,7 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
 
   # --- Class helpers ---
   def self.db_connection
-    CustomOrm::Setup.db_connections(@@connection_name)
+    Luna::Setup.db_connections(@@connection_name)
   end
 
   def self.primary_key_field
@@ -77,14 +77,14 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
     @@connection_name
   end
 
-  def self.db_dialect : CustomOrm::SQL::Dialect
-    CustomOrm::Setup.dialect(@@connection_name)
+  def self.db_dialect : Luna::SQL::Dialect
+    Luna::Setup.dialect(@@connection_name)
   end
 
   private def dialect_supports_returning? : Bool
     case self.class.db_dialect
-    when CustomOrm::SQL::Dialect::Pg     then true
-    when CustomOrm::SQL::Dialect::Sqlite then CustomOrm::SQL.sqlite_supports_returning?(self.class.db_connection)
+    when Luna::SQL::Dialect::Pg     then true
+    when Luna::SQL::Dialect::Sqlite then Luna::SQL.sqlite_supports_returning?(self.class.db_connection)
     else false
     end
   end
@@ -108,13 +108,13 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
           params  = upd.bound_params
 
           if dialect_supports_returning?
-            CustomOrm::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
+            Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
               if rs.move_next
                 assign_attributes_from_json(self.class.from_db_rs(rs).to_json)
               end
             end
           else
-            CustomOrm::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
+            Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
           end
         end
       else
@@ -129,13 +129,13 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
           params  = ins.bound_params
 
           if dialect_supports_returning?
-            CustomOrm::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
+            Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
               if rs.move_next
                 assign_attributes_from_json(self.class.from_db_rs(rs).to_json)
               end
             end
           else
-            CustomOrm::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
+            Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
           end
 
           @fetched = true
@@ -158,13 +158,13 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
         params  = upd.bound_params
 
         if dialect_supports_returning?
-          CustomOrm::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
+          Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
             if rs.move_next
               assign_attributes_from_json(self.class.from_db_rs(rs).to_json)
             end
           end
         else
-          CustomOrm::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
+          Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
         end
       end
     end
@@ -178,13 +178,13 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
       params = del.bound_params
 
       if dialect_supports_returning?
-        CustomOrm::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
+        Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
           if rs.move_next
             assign_attributes_from_json(self.class.from_db_rs(rs).to_json)
           end
         end
       else
-        CustomOrm::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
+        Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
       end
     end
   end
@@ -244,7 +244,7 @@ abstract class CustomOrm::BaseModel < ActiveModel::Model
   # Transactions
   def self.transaction(&block)
     db_connection.transaction do |tx|
-      CustomOrm::Context.with_connection(tx.connection) { yield }
+      Luna::Context.with_connection(tx.connection) { yield }
     end
   end
 

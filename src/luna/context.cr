@@ -1,4 +1,4 @@
-module CustomOrm
+module Luna
   module Context
     @[ThreadLocal]
     @@conn : DB::Connection?

@@ -1,4 +1,4 @@
-module CustomOrm::QueryBuilder
+module Luna::QueryBuilder
   # -------------------------
   # Helpers
   # -------------------------
@@ -68,7 +68,7 @@ module CustomOrm::QueryBuilder
 
     def where_array(cond : String, vals : Array(DB::Any) | NamedTuple)
       @where_clauses << cond
-      CustomOrm::QueryBuilder.append_params!(@params, vals)
+      Luna::QueryBuilder.append_params!(@params, vals)
       self
     end
 
@@ -76,7 +76,7 @@ module CustomOrm::QueryBuilder
       base = @params.size + 1
       idx  = 0
       filters.each do |col, val|
-        @where_clauses << "#{col} = #{CustomOrm::QueryBuilder.ph(base + idx)}"
+        @where_clauses << "#{col} = #{Luna::QueryBuilder.ph(base + idx)}"
         @params << val
         idx += 1
       end
@@ -88,7 +88,7 @@ module CustomOrm::QueryBuilder
       base = @params.size + 1
       idx  = 0
       filters.each do |col, val|
-        @where_clauses << "#{col} = #{CustomOrm::QueryBuilder.ph(base + idx)}"
+        @where_clauses << "#{col} = #{Luna::QueryBuilder.ph(base + idx)}"
         @params << val.as(DB::Any)
         idx += 1
       end
@@ -139,7 +139,7 @@ module CustomOrm::QueryBuilder
       return self if vals.empty?
 
       base = @params.size + 1
-      placeholders = vals.each_index.map { |i| CustomOrm::QueryBuilder.ph(base + i) }.join(", ")
+      placeholders = vals.each_index.map { |i| Luna::QueryBuilder.ph(base + i) }.join(", ")
       @where_clauses << "#{column} IN (#{placeholders})"
       @params.concat(vals)
       self
@@ -203,7 +203,7 @@ module CustomOrm::QueryBuilder
 
     def to_sql
       cols = @columns.join(", ")
-      placeholders = @columns.each_index.map { |i| CustomOrm::QueryBuilder.ph(i + 1) }.join(", ")
+      placeholders = @columns.each_index.map { |i| Luna::QueryBuilder.ph(i + 1) }.join(", ")
       ret = (@ret_cols && !@ret_cols.not_nil!.empty?) ? " RETURNING #{@ret_cols.not_nil!.join(", ")}" : " RETURNING *"
       "INSERT INTO #{@table} (#{cols}) VALUES (#{placeholders})#{ret}"
     end
@@ -231,7 +231,7 @@ module CustomOrm::QueryBuilder
 
       base = 1
       data.each do |col, val|
-        @updates << "#{col} = #{CustomOrm::QueryBuilder.ph(base)}"
+        @updates << "#{col} = #{Luna::QueryBuilder.ph(base)}"
         @params << val
         base += 1
       end
@@ -246,7 +246,7 @@ module CustomOrm::QueryBuilder
 
       base = 1
       data.each do |col, val|
-        @updates << "#{col} = #{CustomOrm::QueryBuilder.ph(base)}"
+        @updates << "#{col} = #{Luna::QueryBuilder.ph(base)}"
         @params << val.as(DB::Any)
         base += 1
       end
@@ -262,7 +262,7 @@ module CustomOrm::QueryBuilder
       base = @params.size + 1
       idx  = 0
       filters.each do |col, val|
-        clause = "#{col} = #{CustomOrm::QueryBuilder.ph(base + idx)}"
+        clause = "#{col} = #{Luna::QueryBuilder.ph(base + idx)}"
         @where = @where ? "#{@where} AND #{clause}" : clause
         @params << val
         idx += 1
@@ -274,7 +274,7 @@ module CustomOrm::QueryBuilder
       base = @params.size + 1
       idx  = 0
       filters.each do |col, val|
-        clause = "#{col} = #{CustomOrm::QueryBuilder.ph(base + idx)}"
+        clause = "#{col} = #{Luna::QueryBuilder.ph(base + idx)}"
         @where = @where ? "#{@where} AND #{clause}" : clause
         @params << val.as(DB::Any)
         idx += 1
@@ -324,7 +324,7 @@ module CustomOrm::QueryBuilder
       base = @params.size + 1
       idx  = 0
       filters.each do |col, val|
-        clause = "#{col} = #{CustomOrm::QueryBuilder.ph(base + idx)}"
+        clause = "#{col} = #{Luna::QueryBuilder.ph(base + idx)}"
         @where = @where ? "#{@where} AND #{clause}" : clause
         @params << val
         idx += 1
@@ -336,7 +336,7 @@ module CustomOrm::QueryBuilder
       base = @params.size + 1
       idx  = 0
       filters.each do |col, val|
-        clause = "#{col} = #{CustomOrm::QueryBuilder.ph(base + idx)}"
+        clause = "#{col} = #{Luna::QueryBuilder.ph(base + idx)}"
         @where = @where ? "#{@where} AND #{clause}" : clause
         @params << val.as(DB::Any)
         idx += 1

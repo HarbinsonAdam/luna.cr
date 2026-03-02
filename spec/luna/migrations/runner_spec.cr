@@ -1,23 +1,23 @@
 require "spec"
 
 # Dummy migrations to exercise the registration macro and version parser
-module CustomOrm::Migrations::TestMigrations
+module Luna::Migrations::TestMigrations
   # Example: classic timestamp-based migration name
-  class V20250101010101_CreateUsers < CustomOrm::BaseMigration
+  class V20250101010101_CreateUsers < Luna::BaseMigration
     def change
       # no-op for this unit test
     end
   end
 
   # Example: name that only contains a long digit sequence
-  class CreatePosts20250102020202 < CustomOrm::BaseMigration
+  class CreatePosts20250102020202 < Luna::BaseMigration
     def change
       # no-op for this unit test
     end
   end
 
   # Example: missing version in the class name to trigger an error
-  class CreateComments < CustomOrm::BaseMigration
+  class CreateComments < Luna::BaseMigration
     def change
       # no-op
     end
@@ -25,15 +25,15 @@ module CustomOrm::Migrations::TestMigrations
 end
 
 # Test helper to access the private #migration_version for specs
-class TestMigrationRunner < CustomOrm::MigrationRunner
-  def version_for(klass : CustomOrm::BaseMigration.class) : String
+class TestMigrationRunner < Luna::MigrationRunner
+  def version_for(klass : Luna::BaseMigration.class) : String
     # This can call the private method because it's inside the subclass
     migration_version(klass)
   end
 end
 
 # Stub runner so we don't need a DB connection for these unit tests
-class StubPendingRunner < CustomOrm::MigrationRunner
+class StubPendingRunner < Luna::MigrationRunner
   def initialize(@stub_pending : Array(String))
     super(:default, false)
   end
@@ -43,9 +43,9 @@ class StubPendingRunner < CustomOrm::MigrationRunner
   end
 end
 
-describe CustomOrm::MigrationRunner do
+describe Luna::MigrationRunner do
   it "registers migrations via register_on_inherit macro" do
-    migrations = CustomOrm::MigrationRunner.migrations
+    migrations = Luna::MigrationRunner.migrations
 
     migrations.any?(&.name.ends_with?("V20250101010101_CreateUsers")).should be_true
     migrations.any?(&.name.ends_with?("CreatePosts20250102020202")).should be_true
@@ -53,7 +53,7 @@ describe CustomOrm::MigrationRunner do
 
   describe "#migration_version" do
     it "extracts version from names like VYYYYMMDDHHMMSS" do
-      klass = CustomOrm::Migrations::TestMigrations::V20250101010101_CreateUsers
+      klass = Luna::Migrations::TestMigrations::V20250101010101_CreateUsers
       runner = TestMigrationRunner.new
 
       version = runner.version_for(klass)
@@ -61,7 +61,7 @@ describe CustomOrm::MigrationRunner do
     end
 
     it "extracts version from any long digit sequence in the name" do
-      klass = CustomOrm::Migrations::TestMigrations::CreatePosts20250102020202
+      klass = Luna::Migrations::TestMigrations::CreatePosts20250102020202
       runner = TestMigrationRunner.new
 
       version = runner.version_for(klass)
@@ -69,7 +69,7 @@ describe CustomOrm::MigrationRunner do
     end
 
     it "raises when no version is inferable" do
-      klass = CustomOrm::Migrations::TestMigrations::CreateComments
+      klass = Luna::Migrations::TestMigrations::CreateComments
       runner = TestMigrationRunner.new
 
       expect_raises(Exception, /Cannot infer migration version/) do

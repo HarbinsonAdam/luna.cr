@@ -1,4 +1,4 @@
-module CustomOrm
+module Luna
   class ModelAlreadyFetchedException < Exception
     def initialize(@model : String)
       super("Model #{@model} has already been fetched.")

@@ -18,10 +18,10 @@ struct UUID
 end
 
 require "active-model"
-require "./custom_orm/setup"
-require "./custom_orm/exceptions"
-require "./custom_orm/query_builder"
-require "./custom_orm/relation"
-require "./custom_orm/associations"
-require "./custom_orm/base_model"
-require "./custom_orm/migrations/*"
+require "./luna/setup"
+require "./luna/exceptions"
+require "./luna/query_builder"
+require "./luna/relation"
+require "./luna/associations"
+require "./luna/base_model"
+require "./luna/migrations/*"

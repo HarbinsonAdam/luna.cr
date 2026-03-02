@@ -1,11 +1,10 @@
-# spec/custom_orm/associations_nested_spec.cr
 require "../spec_helper"
 
 # ----------------------------------------
 # Test models
 # ----------------------------------------
 
-class Author < CustomOrm::BaseModel
+class Author < Luna::BaseModel
   primary_key id
   attribute name : String
 
@@ -13,7 +12,7 @@ class Author < CustomOrm::BaseModel
   has_one profile, klass: Profile, foreign_key: author_id
 end
 
-class Profile < CustomOrm::BaseModel
+class Profile < Luna::BaseModel
   primary_key id
   attribute author_id : Int64
   attribute bio : String
@@ -21,7 +20,7 @@ class Profile < CustomOrm::BaseModel
   belongs_to author, klass: Author, foreign_key: author_id
 end
 
-class Post < CustomOrm::BaseModel
+class Post < Luna::BaseModel
   primary_key id
   attribute author_id : Int64?
   attribute title : String
@@ -30,7 +29,7 @@ class Post < CustomOrm::BaseModel
   has_many comments, klass: Comment, foreign_key: post_id
 end
 
-class Comment < CustomOrm::BaseModel
+class Comment < Luna::BaseModel
   primary_key id
   attribute post_id : Int64
   attribute body : String
@@ -39,7 +38,7 @@ end
 # ----------------------------------------
 # Spec-only query counter (instrument Exec)
 # ----------------------------------------
-module CustomOrm::Exec
+module Luna::Exec
   @@__spec_query_count : Int32 = 0
 
   def self.__spec_reset_query_count
@@ -51,7 +50,7 @@ module CustomOrm::Exec
   end
 
   def self.query_all(db : DB::Database, sql : String, params : Array(DB::Any),
-                     dialect : CustomOrm::SQL::Dialect, &block : DB::ResultSet ->)
+                     dialect : Luna::SQL::Dialect, &block : DB::ResultSet ->)
     @@__spec_query_count += 1
     previous_def(db, sql, params, dialect) do |rs|
       yield rs
@@ -59,13 +58,13 @@ module CustomOrm::Exec
   end
 
   def self.exec(db : DB::Database, sql : String, params : Array(DB::Any),
-                dialect : CustomOrm::SQL::Dialect)
+                dialect : Luna::SQL::Dialect)
     @@__spec_query_count += 1
     previous_def
   end
 
   def self.query_one(db : DB::Database, sql : String, params : Array(DB::Any),
-                     dialect : CustomOrm::SQL::Dialect, as : T.class) : T forall T
+                     dialect : Luna::SQL::Dialect, as : T.class) : T forall T
     @@__spec_query_count += 1
     previous_def
   end
@@ -77,7 +76,7 @@ end
 
 describe "Associations" do
   before_each do
-    db = CustomOrm::Setup.db_connections(:default)
+    db = Luna::Setup.db_connections(:default)
     db.exec("DROP TABLE IF EXISTS comments")
     db.exec("DROP TABLE IF EXISTS posts")
     db.exec("DROP TABLE IF EXISTS profiles")
@@ -108,9 +107,7 @@ describe "Associations" do
   describe "lazy loading" do
     it "belongs_to fetches the parent on demand" do
       p = Post.find!(1)
-      pp p
       a = p.author
-      pp a
       a.should be_a(Author)
       a.not_nil!.name.should eq("Ada")
     end
@@ -176,16 +173,16 @@ describe "Associations" do
   describe "includes reduces query count" do
     it "avoids N+1 when calling association repeatedly" do
       # Lazy path
-      CustomOrm::Exec.__spec_reset_query_count
+      Luna::Exec.__spec_reset_query_count
       posts = Post.rel.order("id ASC").all
       posts.each { |p| p.author.try &.name }
-      lazy_queries = CustomOrm::Exec.__spec_query_count
+      lazy_queries = Luna::Exec.__spec_query_count
 
       # Eager path
-      CustomOrm::Exec.__spec_reset_query_count
+      Luna::Exec.__spec_reset_query_count
       posts2 = Post.rel.order("id ASC").includes(:author).all
       posts2.each { |p| p.author.try &.name }
-      eager_queries = CustomOrm::Exec.__spec_query_count
+      eager_queries = Luna::Exec.__spec_query_count
 
       eager_queries.should be < lazy_queries
     end
@@ -194,7 +191,7 @@ end
 
 describe "Associations (nested includes)" do
   before_each do
-    db = CustomOrm::Setup.db_connections(:default)
+    db = Luna::Setup.db_connections(:default)
 
     # IMPORTANT: drop+create each time so AUTOINCREMENT ids are deterministic
     db.exec("DROP TABLE IF EXISTS comments")
@@ -319,24 +316,24 @@ describe "Associations (nested includes)" do
   describe "nested includes reduces query count" do
     it "avoids N+1 for (authors -> posts -> comments)" do
       # Lazy path (expect: 1 for authors + per-author posts + per-post comments)
-      CustomOrm::Exec.__spec_reset_query_count
+      Luna::Exec.__spec_reset_query_count
       authors = Author.rel.order("id ASC").all
       authors.each do |a|
         a.posts.each do |p|
           p.comments.size
         end
       end
-      lazy = CustomOrm::Exec.__spec_query_count
+      lazy = Luna::Exec.__spec_query_count
       
       # Eager path (expect: 1 for authors + 1 for posts + 1 for comments)
-      CustomOrm::Exec.__spec_reset_query_count
+      Luna::Exec.__spec_reset_query_count
       authors2 = Author.rel.order("id ASC").includes(posts: :comments).all
       authors2.each do |a|
         a.posts.each do |p|
           p.comments.size
         end
       end
-      eager = CustomOrm::Exec.__spec_query_count
+      eager = Luna::Exec.__spec_query_count
 
       eager.should be < lazy
       # A sanity bound that’s stable for this seed set if eager loading is correct:
@@ -346,24 +343,24 @@ describe "Associations (nested includes)" do
 
     it "avoids N+1 for (posts -> author -> profile)" do
       # Lazy: 1 (posts) + per-post author + per-author profile (may re-fetch author)
-      CustomOrm::Exec.__spec_reset_query_count
+      Luna::Exec.__spec_reset_query_count
       posts = Post.rel.order("id ASC").all
       posts.each do |p|
         p.author.try do |a|
           a.profile.try &.bio
         end
       end
-      lazy = CustomOrm::Exec.__spec_query_count
+      lazy = Luna::Exec.__spec_query_count
 
       # Eager: 1 (posts) + 1 (authors) + 1 (profiles)
-      CustomOrm::Exec.__spec_reset_query_count
+      Luna::Exec.__spec_reset_query_count
       posts2 = Post.rel.order("id ASC").includes(author: :profile).all
       posts2.each do |p|
         p.author.try do |a|
           a.profile.try &.bio
         end
       end
-      eager = CustomOrm::Exec.__spec_query_count
+      eager = Luna::Exec.__spec_query_count
 
       eager.should be < lazy
       eager.should be <= 4
