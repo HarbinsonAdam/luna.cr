@@ -15,6 +15,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
 
   @@connection_name : Symbol = :default
   @@primary_key_field : String = "id"
+  @@id_caches : Hash(String, Hash(Int64, NamedTuple(snapshot: String, expires_at: Time))) = Hash(String, Hash(Int64, NamedTuple(snapshot: String, expires_at: Time))).new
 
   setter fetched : Bool = false
 
@@ -32,6 +33,20 @@ abstract class Luna::BaseModel < ActiveModel::Model
     end
   end
 
+  macro cache_by_id(ttl_seconds = 60, limit = 1000)
+    def self.cache_by_id_enabled? : Bool
+      true
+    end
+
+    def self.cache_by_id_ttl_seconds : Int32
+      {{ttl_seconds}}
+    end
+
+    def self.cache_by_id_limit : Int32
+      {{limit}}
+    end
+  end
+
   # --- Class helpers ---
   def self.db_connection
     Luna::Setup.db_connections(@@connection_name)
@@ -45,8 +60,94 @@ abstract class Luna::BaseModel < ActiveModel::Model
     rel
   end
 
+  def self.cache_by_id_enabled? : Bool
+    false
+  end
+
+  def self.cache_by_id_ttl_seconds : Int32
+    0
+  end
+
+  def self.cache_by_id_limit : Int32
+    0
+  end
+
+  private def self.id_cache_store
+    @@id_caches[self.name] ||= Hash(Int64, NamedTuple(snapshot: String, expires_at: Time)).new
+  end
+
+  private def self.cache_usable? : Bool
+    cache_by_id_enabled? && cache_by_id_ttl_seconds > 0 && cache_by_id_limit > 0
+  end
+
+  private def self.read_cached_by_id(id : Int64) : self?
+    return nil unless cache_usable?
+    cache = id_cache_store
+    if entry = cache[id]?
+      now = Time.utc
+      if entry[:expires_at] > now
+        # Touch entry to keep a simple LRU ordering in insertion-ordered Hash.
+        cache.delete(id)
+        cache[id] = entry
+
+        record = self.from_json(entry[:snapshot])
+        record.fetched = true
+        record.clear_changes_information
+        return record
+      end
+      cache.delete(id)
+    end
+    nil
+  end
+
+  def self.__write_cached_record(record : self) : Nil
+    return unless cache_usable?
+    key = cache_key_from_record(record)
+    return if key.nil?
+
+    cache = id_cache_store
+    cache.delete(key)
+    cache[key] = {
+      snapshot:   record.to_json,
+      expires_at: Time.utc + cache_by_id_ttl_seconds.seconds,
+    }
+    prune_cache_limit(cache)
+  end
+
+  private def self.prune_cache_limit(cache : Hash(Int64, NamedTuple(snapshot: String, expires_at: Time))) : Nil
+    while cache.size > cache_by_id_limit
+      oldest_key = cache.keys.first?
+      break if oldest_key.nil?
+      cache.delete(oldest_key)
+    end
+  end
+
+  private def self.cache_key_from_record(record : self) : Int64?
+    case raw = record.read_attribute?(primary_key_field)
+    when Int64
+      raw
+    when Int32, Int16, Int8
+      raw.to_i64
+    else
+      nil
+    end
+  end
+
+  def self.__evict_cached_record(record : self) : Nil
+    return unless cache_usable?
+    key = cache_key_from_record(record)
+    return if key.nil?
+    id_cache_store.delete(key)
+  end
+
   def self.find(id : Int64) : self?
-    Relation(self).new.where("#{primary_key_field} = $1", id).first
+    if record = read_cached_by_id(id)
+      return record
+    end
+
+    record = Relation(self).new.where("#{primary_key_field} = $1", id).first
+    __write_cached_record(record) if record
+    record
   end
 
   def self.find!(id : Int64) : self
@@ -122,6 +223,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
           else
             Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect, self.class.name, "Update")
           end
+          self.class.__write_cached_record(self)
         end
       else
         run_create_callbacks do
@@ -146,6 +248,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
           end
 
           @fetched = true
+          self.class.__write_cached_record(self)
         end
       end
     end
@@ -174,6 +277,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
         else
           Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect, self.class.name, "Update")
         end
+        self.class.__write_cached_record(self)
       end
     end
   end
@@ -194,6 +298,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
       else
         Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect, self.class.name, "Destroy")
       end
+      self.class.__evict_cached_record(self)
     end
   end
 
