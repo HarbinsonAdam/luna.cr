@@ -18,6 +18,7 @@ struct UUID
 end
 
 require "active-model"
+require "./luna/logging"
 require "./luna/setup"
 require "./luna/exceptions"
 require "./luna/sti"

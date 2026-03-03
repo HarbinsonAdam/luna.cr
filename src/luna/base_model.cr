@@ -113,13 +113,13 @@ abstract class Luna::BaseModel < ActiveModel::Model
           params  = upd.bound_params
 
           if dialect_supports_returning?
-            Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
+            Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect, self.class.name, "Update") do |rs|
               if rs.move_next
                 assign_attributes_from_json(self.class.from_db_rs(rs).to_json)
               end
             end
           else
-            Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
+            Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect, self.class.name, "Update")
           end
         end
       else
@@ -135,13 +135,13 @@ abstract class Luna::BaseModel < ActiveModel::Model
           params  = ins.bound_params
 
           if dialect_supports_returning?
-            Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
+            Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect, self.class.name, "Create") do |rs|
               if rs.move_next
                 assign_attributes_from_json(self.class.from_db_rs(rs).to_json)
               end
             end
           else
-            Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
+            Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect, self.class.name, "Create")
           end
 
           @fetched = true
@@ -165,13 +165,13 @@ abstract class Luna::BaseModel < ActiveModel::Model
         params  = upd.bound_params
 
         if dialect_supports_returning?
-          Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
+          Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect, self.class.name, "Update") do |rs|
             if rs.move_next
               assign_attributes_from_json(self.class.from_db_rs(rs).to_json)
             end
           end
         else
-          Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
+          Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect, self.class.name, "Update")
         end
       end
     end
@@ -185,13 +185,13 @@ abstract class Luna::BaseModel < ActiveModel::Model
       params = del.bound_params
 
       if dialect_supports_returning?
-        Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect) do |rs|
+        Luna::Exec.query_all(self.class.db_connection, sql, params, self.class.db_dialect, self.class.name, "Destroy") do |rs|
           if rs.move_next
             assign_attributes_from_json(self.class.from_db_rs(rs).to_json)
           end
         end
       else
-        Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect)
+        Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect, self.class.name, "Destroy")
       end
     end
   end
@@ -352,24 +352,20 @@ abstract class Luna::BaseModel < ActiveModel::Model
     nil
   end
 
-  macro __define_preload_setter__
-    def set_preloaded(name : Symbol, value)
-      case name
-      {% for ivar in @type.instance_vars %}
-        {% if ivar.name.starts_with?("__preloaded_") %}
-          when {{ ivar.name["__preloaded_".size..-1].id.symbolize }}
-            @{{ ivar.name.id }} = value.as({{ ivar.type }})
-        {% end %}
-      {% end %}
-      else
-        # ignore unknown associations
-      end
-    end
+  # Default preload hooks. Association macros override these and chain with previous_def.
+  def set_preloaded(name : Symbol, value : Luna::BaseModel?)
+    # ignore unknown associations
   end
 
-  macro inherited
-    macro finished
-      __define_preload_setter__
-    end
+  def set_preloaded_many(name : Symbol, value : Array(Luna::BaseModel))
+    # ignore unknown associations
+  end
+
+  def get_preloaded(name : Symbol) : Luna::BaseModel?
+    nil
+  end
+
+  def get_preloaded_many(name : Symbol) : Array(Luna::BaseModel)?
+    nil
   end
 end

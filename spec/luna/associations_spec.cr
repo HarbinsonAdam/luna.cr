@@ -50,23 +50,25 @@ module Luna::Exec
   end
 
   def self.query_all(db : DB::Database, sql : String, params : Array(DB::Any),
-                     dialect : Luna::SQL::Dialect, &block : DB::ResultSet ->)
+                     dialect : Luna::SQL::Dialect, model_name : String? = nil, operation : String? = nil,
+                     &block : DB::ResultSet ->)
     @@__spec_query_count += 1
-    previous_def(db, sql, params, dialect) do |rs|
+    previous_def(db, sql, params, dialect, model_name, operation) do |rs|
       yield rs
     end
   end
 
   def self.exec(db : DB::Database, sql : String, params : Array(DB::Any),
-                dialect : Luna::SQL::Dialect)
+                dialect : Luna::SQL::Dialect, model_name : String? = nil, operation : String? = nil)
     @@__spec_query_count += 1
-    previous_def
+    previous_def(db, sql, params, dialect, model_name, operation)
   end
 
   def self.query_one(db : DB::Database, sql : String, params : Array(DB::Any),
-                     dialect : Luna::SQL::Dialect, as : T.class) : T forall T
+                     dialect : Luna::SQL::Dialect, type : T.class, model_name : String? = nil,
+                     operation : String? = nil) : T forall T
     @@__spec_query_count += 1
-    previous_def
+    previous_def(db, sql, params, dialect, type, model_name, operation)
   end
 end
 
