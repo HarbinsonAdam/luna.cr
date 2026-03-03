@@ -10,6 +10,13 @@ class Website < Luna::BaseModel
   attribute active : Bool, default: false
 end
 
+class CachedWebsite < Luna::BaseModel
+  primary_key id
+  cache_by_id 1, 2
+  attribute name : String
+  attribute active : Bool, default: false
+end
+
 describe "BaseModel" do
   describe "connection" do
     it "switches db when using the connection macro" do
@@ -25,10 +32,12 @@ describe "BaseModel" do
     before_all do
       db = Luna::Setup.db_connections(:default)
       db.exec("CREATE TABLE IF NOT EXISTS websites (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, active BOOLEAN)")
+      db.exec("CREATE TABLE IF NOT EXISTS cached_websites (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, active BOOLEAN)")
     end
 
     before_each do
       Website.db_connection.exec("DELETE FROM websites")
+      CachedWebsite.db_connection.exec("DELETE FROM cached_websites")
     end
 
     it "saves a new record with save" do
@@ -102,6 +111,62 @@ describe "BaseModel" do
         raise Luna::Rollback.new
       end
       Website.exists?({name: "TX2"}).should be_false
+    end
+
+    it "caches records fetched by id" do
+      model = CachedWebsite.new(name: "Cached A", active: true)
+      model.save
+      id = model.id
+
+      first = CachedWebsite.find!(id)
+      first.name.should eq("Cached A")
+
+      CachedWebsite.db_connection.exec("UPDATE cached_websites SET name = ? WHERE id = ?", args: ["Changed In DB", id])
+
+      cached = CachedWebsite.find!(id)
+      cached.name.should eq("Cached A")
+    end
+
+    it "expires cached records by ttl" do
+      model = CachedWebsite.new(name: "TTL Name", active: true)
+      model.save
+      id = model.id
+
+      CachedWebsite.find!(id)
+      CachedWebsite.db_connection.exec("UPDATE cached_websites SET name = ? WHERE id = ?", args: ["Fresh Name", id])
+
+      sleep 1100.milliseconds
+
+      reloaded = CachedWebsite.find!(id)
+      reloaded.name.should eq("Fresh Name")
+    end
+
+    it "evicts least recently used records when cache limit is exceeded" do
+      a = CachedWebsite.new(name: "A", active: true); a.save
+      b = CachedWebsite.new(name: "B", active: true); b.save
+      c = CachedWebsite.new(name: "C", active: true); c.save
+
+      CachedWebsite.find!(a.id)
+      CachedWebsite.find!(b.id)
+      CachedWebsite.find!(c.id)
+
+      CachedWebsite.db_connection.exec("UPDATE cached_websites SET name = ? WHERE id = ?", args: ["A From DB", a.id])
+
+      reloaded = CachedWebsite.find!(a.id)
+      reloaded.name.should eq("A From DB")
+    end
+
+    it "keeps cache in sync after update and save" do
+      model = CachedWebsite.new(name: "Sync", active: false)
+      model.save
+      id = model.id
+
+      loaded = CachedWebsite.find!(id)
+      loaded.active = true
+      loaded.save
+
+      cached = CachedWebsite.find!(id)
+      cached.active.should be_true
     end
   end
 end
