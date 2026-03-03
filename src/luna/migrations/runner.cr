@@ -24,7 +24,7 @@ module Luna
 
       known = self.class.migrations
         .map { |k| migration_version(k) }
-        .sort
+        .sort!
 
       known.reject { |v| applied.includes?(v) }
     end

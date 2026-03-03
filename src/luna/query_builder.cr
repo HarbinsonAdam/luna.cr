@@ -204,7 +204,8 @@ module Luna::QueryBuilder
     def to_sql
       cols = @columns.join(", ")
       placeholders = @columns.each_index.map { |i| Luna::QueryBuilder.ph(i + 1) }.join(", ")
-      ret = (@ret_cols && !@ret_cols.not_nil!.empty?) ? " RETURNING #{@ret_cols.not_nil!.join(", ")}" : " RETURNING *"
+      ret_cols = @ret_cols
+      ret = ret_cols && !ret_cols.empty? ? " RETURNING #{ret_cols.join(", ")}" : " RETURNING *"
       "INSERT INTO #{@table} (#{cols}) VALUES (#{placeholders})#{ret}"
     end
 
@@ -290,7 +291,8 @@ module Luna::QueryBuilder
     def to_sql
       sql = "UPDATE #{@table} SET " + @updates.join(", ")
       sql += " WHERE #{@where}" if @where
-      sql += " RETURNING " + (@ret_cols && !@ret_cols.not_nil!.empty? ? @ret_cols.not_nil!.join(", ") : "*")
+      ret_cols = @ret_cols
+      sql += " RETURNING " + (ret_cols && !ret_cols.empty? ? ret_cols.join(", ") : "*")
       sql
     end
 
@@ -352,7 +354,8 @@ module Luna::QueryBuilder
     def to_sql
       sql = "DELETE FROM #{@table}"
       sql += " WHERE #{@where}" if @where
-      sql += " RETURNING " + (@ret_cols && !@ret_cols.not_nil!.empty? ? @ret_cols.not_nil!.join(", ") : "*")
+      ret_cols = @ret_cols
+      sql += " RETURNING " + (ret_cols && !ret_cols.empty? ? ret_cols.join(", ") : "*")
       sql
     end
 

@@ -23,6 +23,17 @@ module Luna
     end
   end
 
+  class InvalidStateTransition < Exception
+    def initialize(model : String, column : Symbol, from_state : Symbol, to_state : Symbol, event : Symbol? = nil)
+      message = if event
+        "Invalid state transition on #{model}.#{column}: #{from_state} -> #{to_state} (event: #{event})"
+      else
+        "Invalid state transition on #{model}.#{column}: #{from_state} -> #{to_state}"
+      end
+      super(message)
+    end
+  end
+
   class Rollback < Exception
   end
 end

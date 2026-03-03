@@ -6,14 +6,14 @@ require "./logging"
 module Luna::Exec
   def self.query_all(db : DB::Database, sql : String, params : Array(DB::Any),
                     dialect : Luna::SQL::Dialect, model_name : String? = nil, operation : String? = nil,
-                    &block : DB::ResultSet ->)
+                    & : DB::ResultSet ->)
     sql = Luna::SQL.prepare_sql(sql, dialect)
     started_at = Time.monotonic
     begin
       if conn = Luna::Context.current_connection
-        conn.query(sql, args: params) { |rs| yield rs }
+        conn.query(sql, args: params) { |result_set| yield result_set }
       else
-        db.query(sql, args: params) { |rs| yield rs }
+        db.query(sql, args: params) { |result_set| yield result_set }
       end
     ensure
       elapsed_ms = (Time.monotonic - started_at).total_milliseconds

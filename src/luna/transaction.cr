@@ -1,7 +1,7 @@
 module Luna
   # Global transaction helper, similar to ActiveRecord::Base.transaction.
   # Raises rollback of current tx when Luna::Rollback is raised and swallows it.
-  def self.transaction(connection_name : Symbol = :default, &block)
+  def self.transaction(connection_name : Symbol = :default, &)
     if Luna::Context.current_connection
       begin
         Luna::Context.with_transaction { yield }
