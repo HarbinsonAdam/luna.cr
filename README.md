@@ -36,9 +36,21 @@ require "luna"
 Luna::Setup.register :default, "sqlite3:./db/app.db"
 # Optional additional connections
 Luna::Setup.register :reports, "sqlite3:./db/reports.db"
+
+# Optional: Rails-style SQL logging with elapsed ms
+Luna::Setup.enable_query_logging
 ```
 
 Supported URL schemes include `sqlite3:`, `postgres://`, and `mysql://`.
+
+When query logging is enabled, logs include model/action labels, elapsed time, SQL, params, and transaction markers:
+
+```text
+Product Load (0.3ms) SELECT * FROM products WHERE id = ? LIMIT ? -- params: [81, 1]
+(0.0ms) begin transaction
+Product Update (0.2ms) UPDATE products SET name = ? WHERE id = ? -- params: ["Desk", 81]
+(0.4ms) commit transaction
+```
 
 ## Defining Models
 

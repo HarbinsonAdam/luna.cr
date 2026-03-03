@@ -105,7 +105,7 @@ module Luna
       dialect = @model.db_dialect
       records = [] of T
 
-      Luna::Exec.query_all(db, query.to_sql, query.bound_params, dialect) do |rs|
+      Luna::Exec.query_all(db, query.to_sql, query.bound_params, dialect, @model.name, "Load") do |rs|
         while rs.move_next
           records << @model.from_db_row(rs)
         end
@@ -145,7 +145,7 @@ module Luna
       expr    = distinct && column != "*" ? "COUNT(DISTINCT #{column})" : "COUNT(#{column})"
       db      = @model.db_connection
       dialect = @model.db_dialect
-      Luna::Exec.query_one(db, aggregate_sql(expr), @query.bound_params, dialect, as: Int64)
+      Luna::Exec.query_one(db, aggregate_sql(expr), @query.bound_params, dialect, Int64, @model.name, "Count")
     end
 
     def exists? : Bool
@@ -159,7 +159,7 @@ module Luna
       db = @model.db_connection
       dialect = @model.db_dialect
       out = [] of TVal
-      Luna::Exec.query_all(db, q.to_sql, q.bound_params, dialect) do |rs|
+      Luna::Exec.query_all(db, q.to_sql, q.bound_params, dialect, @model.name, "Pluck") do |rs|
         while rs.move_next
           out << rs.read(TVal)
         end
@@ -170,28 +170,28 @@ module Luna
     # Numeric aggregates (typed)
     def sum(column : String, as : TNum.class) : TNum? forall TNum
       db = @model.db_connection; dialect = @model.db_dialect
-      Luna::Exec.query_one(db, aggregate_sql("SUM(#{column})"), @query.bound_params, dialect, as: TNum)
+      Luna::Exec.query_one(db, aggregate_sql("SUM(#{column})"), @query.bound_params, dialect, TNum, @model.name, "Sum")
     rescue DB::NoResultsError
       nil
     end
 
     def avg(column : String, as : TNum.class) : TNum? forall TNum
       db = @model.db_connection; dialect = @model.db_dialect
-      Luna::Exec.query_one(db, aggregate_sql("AVG(#{column})"), @query.bound_params, dialect, as: TNum)
+      Luna::Exec.query_one(db, aggregate_sql("AVG(#{column})"), @query.bound_params, dialect, TNum, @model.name, "Avg")
     rescue DB::NoResultsError
       nil
     end
 
     def min(column : String, as : TVal.class) : TVal? forall TVal
       db = @model.db_connection; dialect = @model.db_dialect
-      Luna::Exec.query_one(db, aggregate_sql("MIN(#{column})"), @query.bound_params, dialect, as: TVal)
+      Luna::Exec.query_one(db, aggregate_sql("MIN(#{column})"), @query.bound_params, dialect, TVal, @model.name, "Min")
     rescue DB::NoResultsError
       nil
     end
 
     def max(column : String, as : TVal.class) : TVal? forall TVal
       db = @model.db_connection; dialect = @model.db_dialect
-      Luna::Exec.query_one(db, aggregate_sql("MAX(#{column})"), @query.bound_params, dialect, as: TVal)
+      Luna::Exec.query_one(db, aggregate_sql("MAX(#{column})"), @query.bound_params, dialect, TVal, @model.name, "Max")
     rescue DB::NoResultsError
       nil
     end

@@ -1,6 +1,7 @@
 require "sqlite3"
 require "mysql"
 require "pg"
+require "./logging"
 
 module Luna
   class Setup
@@ -22,6 +23,18 @@ module Luna
 
     def self.dialect(name : Symbol) : Luna::SQL::Dialect
       @@dialects[name]? || raise "Dialect for '#{name}' not registered"
+    end
+
+    def self.enable_query_logging
+      Luna::Logging.enable_query_logging
+    end
+
+    def self.disable_query_logging
+      Luna::Logging.disable_query_logging
+    end
+
+    def self.query_logging_enabled? : Bool
+      Luna::Logging.query_logging_enabled?
     end
   end
 end
