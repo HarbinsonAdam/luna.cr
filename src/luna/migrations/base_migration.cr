@@ -41,7 +41,7 @@ module Luna
     end
 
     # ---- Table builder (Rails-like) ----
-    def create_table(name : Symbol | String, id : Bool | Symbol = true, force : Bool = false, &block : Migrations::TableDefinition ->)
+    def create_table(name : Symbol | String, id : Bool | Symbol = true, force : Bool = false, & : Migrations::TableDefinition ->)
       table = name.to_s
       db  = Setup.db_connections(@connection_name)
       dia = Setup.dialect(@connection_name)
@@ -68,7 +68,7 @@ module Luna
     end
 
     # change_table : yields a builder that just appends ALTERs
-    def change_table(name : Symbol | String, &block : Migrations::ChangeTable ->)
+    def change_table(name : Symbol | String, & : Migrations::ChangeTable ->)
       db  = Setup.db_connections(@connection_name)
       dia = Setup.dialect(@connection_name)
       ct  = Migrations::ChangeTable.new(name.to_s, dia)
@@ -126,7 +126,8 @@ module Luna
       idx = name
       unless idx
         raise "remove_index requires :name or :columns" unless columns
-        idx = "index_#{table}_on_#{columns.not_nil!.join("_and_")}"
+        cols = columns || raise "remove_index requires :name or :columns"
+        idx = "index_#{table}_on_#{cols.join("_and_")}"
       end
       sql = if dia == SQL::Dialect::Pg
         "DROP INDEX IF EXISTS #{idx}"

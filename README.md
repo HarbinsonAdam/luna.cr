@@ -201,6 +201,37 @@ Behavior:
 - Querying `Animal` hydrates the correct subclass
 - Querying `Dog` or `Cat` automatically scopes by type
 
+## State Machines
+
+Luna supports enum-backed state machines with Rails-style transition events.
+
+```crystal
+enum JobState
+  ENQUEUED
+  RUNNING
+  FAILED
+  COMPLETED
+end
+
+class RenderJob < Luna::BaseModel
+  primary_key id
+  attribute status : JobState, default: JobState::ENQUEUED
+
+  state_machine status, JobState, {
+    start:   {from: :enqueued, to: :running},
+    fail:    {from: [:enqueued, :running], to: :failed},
+    finish:  {from: :running, to: :completed, after: :emit_completed_event},
+  }
+end
+```
+
+What this gives you:
+- Enum values persist to the DB as lowercase strings (for example `completed`)
+- Event methods (`start`, `start!`, etc.) with transition guards
+- Exceptions on invalid transitions (`Luna::InvalidStateTransition`)
+- Save-time protection against invalid direct state assignment (`model.status = ...; model.save`)
+- Per-state predicate helpers (for example `status_running?`)
+
 ## Migrations
 
 Define a migration by inheriting `Luna::BaseMigration`.

@@ -5,7 +5,7 @@ module Luna
     @[ThreadLocal]
     @@transaction_depth = 0
 
-    def self.with_connection(conn : DB::Connection, &block)
+    def self.with_connection(conn : DB::Connection, &)
       prev = @@conn
       @@conn = conn
       begin
@@ -27,7 +27,7 @@ module Luna
       @@transaction_depth > 0
     end
 
-    def self.with_transaction(&block)
+    def self.with_transaction(&)
       @@transaction_depth += 1
       begin
         yield

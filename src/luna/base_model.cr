@@ -2,6 +2,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
   include ActiveModel::Callbacks
   include ActiveModel::Validation
   include Luna::Sti
+  include Luna::StateMachine
   include Luna::Associations
 
   # inside Luna::BaseModel
@@ -202,14 +203,24 @@ abstract class Luna::BaseModel < ActiveModel::Model
       case column_name
       {% for key, opts in FIELDS %}
         when {{key.stringify}}
-          {% if opts[:klass].resolve.nilable? %}
+          {% klass = opts[:klass].resolve %}
+          {% if klass.nilable? %}
+            {% non_nil_klass = klass.union_types.reject(&.nilable?).first %}
             if value.nil?
               self.{{key}} = nil
             else
+              {% if non_nil_klass < Enum %}
+              self.{{key}} = self.class.enum_from_db(value, {{non_nil_klass}})
+              {% else %}
               self.{{key}} = value.as({{opts[:klass]}})
+              {% end %}
             end
           {% else %}
+            {% if klass < Enum %}
+            self.{{key}} = self.class.enum_from_db(value, {{klass}})
+            {% else %}
             self.{{key}} = value.as({{opts[:klass]}})
+            {% end %}
           {% end %}
       {% end %}
       else
@@ -288,7 +299,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
   end
 
   # Transactions
-  def self.transaction(&block)
+  def self.transaction(&)
     Luna.transaction(connection_name) { yield }
   end
 
@@ -323,6 +334,8 @@ abstract class Luna::BaseModel < ActiveModel::Model
 
   private def to_db_value(value) : DB::Any
     case value
+    when Enum
+      value.to_s.downcase
     when JSON::Any
       # store JSON as text in the DB (for json/jsonb columns)
       value.to_json
@@ -331,6 +344,21 @@ abstract class Luna::BaseModel < ActiveModel::Model
     else
       # You can adjust this if you later add more custom types
       raise "Unsupported DB value type: #{value.class}"
+    end
+  end
+
+  def self.enum_from_db(raw : DB::Any, enum_klass : T.class) : T forall T
+    case raw
+    when T
+      raw
+    when String
+      T.parse?(raw) || T.parse?(raw.upcase) ||
+        raise(ArgumentError.new("Invalid #{enum_klass} value from DB: #{raw}"))
+    when Int8, Int16, Int32, Int64
+      T.from_value?(raw.to_i) ||
+        raise(ArgumentError.new("Invalid #{enum_klass} numeric value from DB: #{raw}"))
+    else
+      raise ArgumentError.new("Unsupported #{enum_klass} source value from DB: #{raw.class}")
     end
   end
 
