@@ -1,6 +1,4 @@
-require "sqlite3"
-require "mysql"
-require "pg"
+require "db"
 require "./logging"
 
 module Luna

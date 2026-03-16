@@ -200,6 +200,16 @@ abstract class Luna::BaseModel < ActiveModel::Model
     sql.sub(/\s+RETURNING\s+.+\z/, "")
   end
 
+  private def assign_primary_key_from_insert(result : DB::ExecResult) : Nil
+    return if dialect_supports_returning?
+
+    primary_key_value = result.last_insert_id
+    return if primary_key_value <= 0
+
+    db_value = primary_key_value.as(DB::Any)
+    __assign_field_from_db_any(self.class.primary_key_field, db_value)
+  end
+
   def save
     run_save_callbacks do
       if @fetched
@@ -244,7 +254,8 @@ abstract class Luna::BaseModel < ActiveModel::Model
               end
             end
           else
-            Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect, self.class.name, "Create")
+            result = Luna::Exec.exec(self.class.db_connection, strip_returning(sql), params, self.class.db_dialect, self.class.name, "Create")
+            assign_primary_key_from_insert(result)
           end
 
           @fetched = true

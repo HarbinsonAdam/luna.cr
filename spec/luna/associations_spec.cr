@@ -76,6 +76,13 @@ end
 # Specs
 # ----------------------------------------
 
+private def create_association_tables(db : DB::Database)
+  db.exec("CREATE TABLE IF NOT EXISTS authors  (#{SpecDb.primary_key}, #{SpecDb.text("name")})")
+  db.exec("CREATE TABLE IF NOT EXISTS profiles (#{SpecDb.primary_key}, #{SpecDb.integer("author_id", null: false)}, #{SpecDb.text("bio")})")
+  db.exec("CREATE TABLE IF NOT EXISTS posts    (#{SpecDb.primary_key}, #{SpecDb.integer("author_id")}, #{SpecDb.text("title")})")
+  db.exec("CREATE TABLE IF NOT EXISTS comments (#{SpecDb.primary_key}, #{SpecDb.integer("post_id", null: false)}, #{SpecDb.text("body")})")
+end
+
 describe "Associations" do
   before_each do
     db = Luna::Setup.db_connections(:default)
@@ -84,10 +91,7 @@ describe "Associations" do
     db.exec("DROP TABLE IF EXISTS profiles")
     db.exec("DROP TABLE IF EXISTS authors")
 
-    db.exec("CREATE TABLE IF NOT EXISTS authors  (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
-    db.exec("CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, author_id INTEGER NOT NULL, bio TEXT)")
-    db.exec("CREATE TABLE IF NOT EXISTS posts    (id INTEGER PRIMARY KEY AUTOINCREMENT, author_id INTEGER, title TEXT)")
-    db.exec("CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER NOT NULL, body TEXT)")
+    create_association_tables(db)
 
     # Seed:
     # Author 1 has profile + 2 posts (post 1 has 2 comments, post 2 has 1 comment)
@@ -201,10 +205,7 @@ describe "Associations (nested includes)" do
     db.exec("DROP TABLE IF EXISTS profiles")
     db.exec("DROP TABLE IF EXISTS authors")
 
-    db.exec("CREATE TABLE IF NOT EXISTS authors  (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
-    db.exec("CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, author_id INTEGER NOT NULL, bio TEXT)")
-    db.exec("CREATE TABLE IF NOT EXISTS posts    (id INTEGER PRIMARY KEY AUTOINCREMENT, author_id INTEGER, title TEXT)")
-    db.exec("CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER NOT NULL, body TEXT)")
+    create_association_tables(db)
 
     # Seed:
     # Author 1 has profile + 2 posts (post 1 has 2 comments, post 2 has 1 comment)
