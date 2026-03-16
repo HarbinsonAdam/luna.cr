@@ -31,8 +31,8 @@ describe "BaseModel" do
   describe "crud methods" do
     before_all do
       db = Luna::Setup.db_connections(:default)
-      db.exec("CREATE TABLE IF NOT EXISTS websites (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, active BOOLEAN)")
-      db.exec("CREATE TABLE IF NOT EXISTS cached_websites (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, active BOOLEAN)")
+      db.exec("CREATE TABLE IF NOT EXISTS websites (#{SpecDb.primary_key}, #{SpecDb.text("name")}, #{SpecDb.boolean("active")})")
+      db.exec("CREATE TABLE IF NOT EXISTS cached_websites (#{SpecDb.primary_key}, #{SpecDb.text("name")}, #{SpecDb.boolean("active")})")
     end
 
     before_each do
@@ -54,7 +54,7 @@ describe "BaseModel" do
       m = Website.find_by!({name: "Epsilon"})
       m.active = true
       m.save
-      active = Website.db_connection.query_one("SELECT active FROM websites WHERE name = ?", args: ["Epsilon"], as: Bool)
+      active = Website.db_connection.query_one("SELECT active FROM websites WHERE name = #{SpecDb.placeholder(1)}", args: ["Epsilon"], as: Bool)
       active.should be_true
     end
 
@@ -63,7 +63,7 @@ describe "BaseModel" do
       m = Website.find_by!({name: "Zeta"})
       m.active = false
       m.update
-      active = Website.db_connection.query_one("SELECT active FROM websites WHERE name = ?", args: ["Zeta"], as: Bool)
+      active = Website.db_connection.query_one("SELECT active FROM websites WHERE name = #{SpecDb.placeholder(1)}", args: ["Zeta"], as: Bool)
       active.should be_false
     end
 
@@ -71,7 +71,7 @@ describe "BaseModel" do
       Website.new(name: "Theta", active: true).save
       m = Website.find_by!({name: "Theta"})
       m.destroy
-      count = Website.db_connection.query_one("SELECT COUNT(*) FROM websites WHERE name = ?", args: ["Theta"], as: Int64)
+      count = Website.db_connection.query_one("SELECT COUNT(*) FROM websites WHERE name = #{SpecDb.placeholder(1)}", args: ["Theta"], as: Int64)
       count.should eq(0)
     end
 
@@ -121,7 +121,7 @@ describe "BaseModel" do
       first = CachedWebsite.find!(id)
       first.name.should eq("Cached A")
 
-      CachedWebsite.db_connection.exec("UPDATE cached_websites SET name = ? WHERE id = ?", args: ["Changed In DB", id])
+      CachedWebsite.db_connection.exec("UPDATE cached_websites SET name = #{SpecDb.placeholder(1)} WHERE id = #{SpecDb.placeholder(2)}", args: ["Changed In DB", id])
 
       cached = CachedWebsite.find!(id)
       cached.name.should eq("Cached A")
@@ -133,7 +133,7 @@ describe "BaseModel" do
       id = model.id
 
       CachedWebsite.find!(id)
-      CachedWebsite.db_connection.exec("UPDATE cached_websites SET name = ? WHERE id = ?", args: ["Fresh Name", id])
+      CachedWebsite.db_connection.exec("UPDATE cached_websites SET name = #{SpecDb.placeholder(1)} WHERE id = #{SpecDb.placeholder(2)}", args: ["Fresh Name", id])
 
       sleep 1100.milliseconds
 
@@ -150,7 +150,7 @@ describe "BaseModel" do
       CachedWebsite.find!(b.id)
       CachedWebsite.find!(c.id)
 
-      CachedWebsite.db_connection.exec("UPDATE cached_websites SET name = ? WHERE id = ?", args: ["A From DB", a.id])
+      CachedWebsite.db_connection.exec("UPDATE cached_websites SET name = #{SpecDb.placeholder(1)} WHERE id = #{SpecDb.placeholder(2)}", args: ["A From DB", a.id])
 
       reloaded = CachedWebsite.find!(a.id)
       reloaded.name.should eq("A From DB")

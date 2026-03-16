@@ -18,6 +18,8 @@ Add to `shard.yml`:
 dependencies:
   luna:
     github: HarbinsonAdam/luna.cr
+  sqlite3:
+    github: crystal-lang/crystal-sqlite3
 ```
 
 Then:
@@ -31,6 +33,7 @@ shards install
 Register at least one connection before using models:
 
 ```crystal
+require "luna/adapters/sqlite3"
 require "luna"
 
 Luna::Setup.register :default, "sqlite3:./db/app.db"
@@ -42,6 +45,23 @@ Luna::Setup.enable_query_logging
 ```
 
 Supported URL schemes include `sqlite3:`, `postgres://`, and `mysql://`.
+
+Luna no longer hard-depends on every database adapter. Add only the adapter shard you need and require the matching adapter loader before `require "luna"`:
+
+```crystal
+require "luna/adapters/sqlite3"
+require "luna"
+```
+
+```crystal
+require "luna/adapters/pg"
+require "luna"
+```
+
+```crystal
+require "luna/adapters/mysql"
+require "luna"
+```
 
 When query logging is enabled, logs include model/action labels, elapsed time, SQL, params, and transaction markers:
 

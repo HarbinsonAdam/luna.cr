@@ -35,7 +35,7 @@ describe "StateMachine" do
   before_all do
     db = Luna::Setup.db_connections(:default)
     db.exec("DROP TABLE IF EXISTS articles")
-    db.exec("CREATE TABLE articles (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, status TEXT NOT NULL DEFAULT 'draft')")
+    db.exec("CREATE TABLE articles (#{SpecDb.primary_key}, #{SpecDb.text("title")}, #{SpecDb.text("status", null: false, default: "draft")})")
   end
 
   before_each do
@@ -46,7 +46,7 @@ describe "StateMachine" do
     article = Article.new(title: "Guide", status: PublishState::DRAFT)
     article.save
 
-    raw_status = Article.db_connection.query_one("SELECT status FROM articles WHERE id = ?", args: [article.id], as: String)
+    raw_status = Article.db_connection.query_one("SELECT status FROM articles WHERE id = #{SpecDb.placeholder(1)}", args: [article.id], as: String)
     raw_status.should eq("draft")
 
     reloaded = Article.find(article.id.not_nil!).not_nil!
@@ -65,7 +65,7 @@ describe "StateMachine" do
     article.status.should eq(PublishState::PUBLISHED)
     article.transition_hooks.should eq(["before_publish", "after_publish"])
 
-    raw_status = Article.db_connection.query_one("SELECT status FROM articles WHERE id = ?", args: [article.id], as: String)
+    raw_status = Article.db_connection.query_one("SELECT status FROM articles WHERE id = #{SpecDb.placeholder(1)}", args: [article.id], as: String)
     raw_status.should eq("published")
   end
 
@@ -100,7 +100,7 @@ describe "StateMachine" do
     article.status = PublishState::PUBLISHED
     article.save
 
-    raw_status = Article.db_connection.query_one("SELECT status FROM articles WHERE id = ?", args: [article.id], as: String)
+    raw_status = Article.db_connection.query_one("SELECT status FROM articles WHERE id = #{SpecDb.placeholder(1)}", args: [article.id], as: String)
     raw_status.should eq("published")
   end
 end

@@ -20,7 +20,7 @@ describe "STI" do
   before_each do
     db = Luna::Setup.db_connections(:default)
     db.exec("DROP TABLE IF EXISTS animals")
-    db.exec("CREATE TABLE animals (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, name TEXT, bark_volume INTEGER, lives_left INTEGER)")
+    db.exec("CREATE TABLE animals (#{SpecDb.primary_key}, #{SpecDb.text("kind")}, #{SpecDb.text("name")}, #{SpecDb.integer("bark_volume")}, #{SpecDb.integer("lives_left")})")
   end
 
   it "uses parent table for STI children" do
@@ -32,7 +32,7 @@ describe "STI" do
     dog = Dog.new(name: "Rex", bark_volume: 5)
     dog.save
 
-    db_type = Luna::Setup.db_connections(:default).query_one("SELECT kind FROM animals WHERE id = ?", args: [dog.id], as: String)
+    db_type = Luna::Setup.db_connections(:default).query_one("SELECT kind FROM animals WHERE id = #{SpecDb.placeholder(1)}", args: [dog.id], as: String)
     db_type.should eq("dog")
   end
 
