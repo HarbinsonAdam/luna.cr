@@ -1,4 +1,22 @@
 module Luna::QueryBuilder
+  # Convert values accepted by the public query DSL into the driver's
+  # DB::Any union.  Enum is intentionally handled here: Crystal enums do not
+  # belong to DB::Any, but their stable names are the values persisted by
+  # BaseModel.  Keeping this conversion at the query boundary means callers
+  # can use enum values in NamedTuple filters and inserts without unsafe casts.
+  def self.to_db_any(value) : DB::Any
+    case value
+    when Enum
+      value.to_s.downcase
+    when JSON::Any
+      value.to_json
+    when String, Int32, Int64, Bool, Float32, Float64, Time, Nil, Slice(UInt8)
+      value
+    else
+      raise ArgumentError.new("Unsupported DB value type: #{value.class}")
+    end
+  end
+
   # -------------------------
   # Helpers
   # -------------------------
@@ -11,7 +29,7 @@ module Luna::QueryBuilder
   end
 
   def self.append_params!(target : Array(DB::Any), vals : NamedTuple)
-    target.concat(vals.values.to_a.map(&.as(DB::Any)))
+    target.concat(vals.values.to_a.map { |value| to_db_any(value) })
   end
 
   # -------------------------
@@ -89,7 +107,7 @@ module Luna::QueryBuilder
       idx  = 0
       filters.each do |col, val|
         @where_clauses << "#{col} = #{Luna::QueryBuilder.ph(base + idx)}"
-        @params << val.as(DB::Any)
+        @params << Luna::QueryBuilder.to_db_any(val)
         idx += 1
       end
       self
@@ -192,7 +210,7 @@ module Luna::QueryBuilder
       @ret_cols = nil
       data.each do |col, val|
         @columns << col.to_s
-        @values  << val.as(DB::Any)
+        @values  << Luna::QueryBuilder.to_db_any(val)
       end
     end
 

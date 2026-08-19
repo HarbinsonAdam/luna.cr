@@ -54,6 +54,13 @@ describe "StateMachine" do
     reloaded.status_draft?.should be_true
   end
 
+  it "converts enum values in NamedTuple query filters to DB::Any" do
+    Article.new(title: "Draft", status: PublishState::DRAFT).save
+    Article.new(title: "Review", status: PublishState::REVIEW).save
+
+    Article.where({status: PublishState::DRAFT}).count.should eq(1)
+  end
+
   it "supports event methods with hooks and bang persistence" do
     article = Article.new(title: "Release Notes", status: PublishState::DRAFT)
     article.save
