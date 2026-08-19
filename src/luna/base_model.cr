@@ -449,18 +449,7 @@ abstract class Luna::BaseModel < ActiveModel::Model
   end
 
   private def to_db_value(value) : DB::Any
-    case value
-    when Enum
-      value.to_s.downcase
-    when JSON::Any
-      # store JSON as text in the DB (for json/jsonb columns)
-      value.to_json
-    when String, Int32, Int64, Bool, Float32, Float64, Time, Nil, Slice(UInt8)
-      value
-    else
-      # You can adjust this if you later add more custom types
-      raise "Unsupported DB value type: #{value.class}"
-    end
+    Luna::QueryBuilder.to_db_any(value)
   end
 
   def self.enum_from_db(raw : DB::Any, enum_klass : T.class) : T forall T
