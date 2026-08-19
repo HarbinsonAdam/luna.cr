@@ -17,6 +17,16 @@ class CachedWebsite < Luna::BaseModel
   attribute active : Bool, default: false
 end
 
+enum NullableVisibility
+  PUBLIC
+  PRIVATE
+end
+
+class NullableEnumRecord < Luna::BaseModel
+  primary_key id
+  attribute visibility : NullableVisibility?
+end
+
 describe "BaseModel" do
   describe "connection" do
     it "switches db when using the connection macro" do
@@ -33,11 +43,13 @@ describe "BaseModel" do
       db = Luna::Setup.db_connections(:default)
       db.exec("CREATE TABLE IF NOT EXISTS websites (#{SpecDb.primary_key}, #{SpecDb.text("name")}, #{SpecDb.boolean("active")})")
       db.exec("CREATE TABLE IF NOT EXISTS cached_websites (#{SpecDb.primary_key}, #{SpecDb.text("name")}, #{SpecDb.boolean("active")})")
+      db.exec("CREATE TABLE IF NOT EXISTS nullable_enum_records (#{SpecDb.primary_key}, #{SpecDb.text("visibility")})")
     end
 
     before_each do
       Website.db_connection.exec("DELETE FROM websites")
       CachedWebsite.db_connection.exec("DELETE FROM cached_websites")
+      NullableEnumRecord.db_connection.exec("DELETE FROM nullable_enum_records")
     end
 
     it "saves a new record with save" do
@@ -83,6 +95,15 @@ describe "BaseModel" do
       Website.exists?({name: "ZZZ"}).should be_false
       names = Website.pluck("name", as: String)
       names.sort!.should eq(["A", "B"])
+    end
+
+    it "hydrates nilable enum columns through the generic DB::Any reader" do
+      NullableEnumRecord.db_connection.exec("INSERT INTO nullable_enum_records (visibility) VALUES (NULL)")
+      record = NullableEnumRecord.all.first.not_nil!
+      record.visibility.should be_nil
+
+      NullableEnumRecord.db_connection.exec("INSERT INTO nullable_enum_records (visibility) VALUES (#{SpecDb.placeholder(1)})", args: ["private"])
+      NullableEnumRecord.all.to_a.last.not_nil!.visibility.should eq(NullableVisibility::PRIVATE)
     end
 
     it "supports relation-style class chaining" do
