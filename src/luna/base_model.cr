@@ -349,8 +349,22 @@ abstract class Luna::BaseModel < ActiveModel::Model
       rs.each_column do |column_name|
         {% for key, opts in FIELDS %}
           if {{key.stringify}} == column_name
-            val = rs.read({{opts[:klass]}})
-            stuff.{{key}} = val
+            {% klass = opts[:klass].resolve %}
+            {% if klass.nilable? %}
+              {% non_nil_klass = klass.union_types.reject(&.nilable?).first %}
+              {% if non_nil_klass < Enum %}
+                # DB::ResultSet cannot read nilable enums directly. Route
+                # only this case through DB::Any; native scalar reads retain
+                # each adapter's normal coercion (notably SQLite booleans).
+                stuff.__assign_field_from_db_any(column_name, rs.read(DB::Any))
+              {% else %}
+                stuff.{{key}} = rs.read({{opts[:klass]}})
+              {% end %}
+            {% elsif klass < Enum %}
+              stuff.__assign_field_from_db_any(column_name, rs.read(DB::Any))
+            {% else %}
+              stuff.{{key}} = rs.read({{opts[:klass]}})
+            {% end %}
           end
         {% end %}
       end
